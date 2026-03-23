@@ -1,0 +1,3110 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>GIS Primário — Análise de Circuitos</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<style>
+:root{
+  --bg:#07101f; --surface:#0c1a2e; --card:#0f2040; --border:#1a3055;
+  --accent:#00c2ff; --accent-dim:#004d66; --text:#cdd9eb; --muted:#4d6a8a;
+  --green:#00e5a0; --amber:#ffb830; --rose:#ff4d6e; --purple:#b97fff; --orange:#ff7b2e;
+  --alt-row:#081526;
+}
+html.light{
+  --bg:#f0f4f8; --surface:#ffffff; --card:#ffffff; --border:#d1dce8;
+  --accent:#0077cc; --accent-dim:#dbeeff; --text:#1a2a3a; --muted:#6b87a0;
+  --green:#059669; --amber:#d97706; --rose:#e11d48; --purple:#7c3aed; --orange:#ea580c;
+  --alt-row:#f7fafc;
+}
+html.light body{ background:var(--bg); }
+html.light ::-webkit-scrollbar-track{ background:#e8eef4; }
+html.light select option{ background:#fff; color:#1a2a3a; }
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Outfit','Segoe UI',sans-serif;height:100vh;overflow:hidden}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--muted)}
+select option{background:var(--card);color:var(--text)}
+input,select{font-family:inherit}
+button{font-family:inherit;cursor:pointer}
+
+/* ─ Upload ─ */
+#upload-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;gap:0}
+.upload-logo{font-size:56px;margin-bottom:12px}
+.upload-title{font-size:32px;font-weight:800;color:var(--text);letter-spacing:-.02em;margin-bottom:6px}
+.upload-sub{font-size:15px;color:var(--muted);margin-bottom:40px}
+.drop-zone{border:2px dashed var(--border);border-radius:16px;padding:48px 64px;cursor:pointer;
+  background:var(--card);text-align:center;transition:all .2s;min-width:380px}
+.drop-zone:hover,.drop-zone.drag{border-color:var(--accent);background:#0e1e35}
+.drop-icon{font-size:40px;margin-bottom:12px}
+.drop-title{color:var(--text);font-size:17px;font-weight:600;margin-bottom:6px}
+.drop-hint{color:var(--muted);font-size:13px}
+.upload-pills{display:flex;gap:10px;margin-top:28px;flex-wrap:wrap;justify-content:center}
+.pill{background:var(--card);border:1px solid var(--border);color:var(--muted);
+  border-radius:20px;padding:5px 14px;font-size:12px;font-weight:500}
+
+/* ─ App layout ─ */
+#app-shell{display:none;height:100vh;overflow:hidden}
+.shell-inner{display:flex;height:100vh}
+
+/* ─ Sidebar ─ */
+.sidebar{width:220px;background:var(--surface);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;flex-shrink:0;height:100vh}
+.sidebar-logo{padding:20px 16px 16px;border-bottom:1px solid var(--border)}
+.sidebar-logo-row{display:flex;align-items:center;gap:10px}
+.sidebar-logo-icon{font-size:24px}
+.sidebar-logo-name{font-size:15px;font-weight:800;letter-spacing:-.01em}
+.sidebar-logo-sub{font-size:10px;color:var(--muted)}
+.sidebar-file{margin-top:10px;background:var(--card);border-radius:6px;padding:6px 10px;
+  color:var(--muted);font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sidebar-count{margin-top:6px;color:var(--accent);font-size:11px;font-family:'JetBrains Mono',monospace}
+.sidebar-nav{padding:10px 8px;flex:1}
+.nav-btn{width:100%;text-align:left;background:transparent;color:var(--muted);
+  border:1px solid transparent;border-radius:8px;padding:11px 12px;margin-bottom:4px;
+  display:flex;align-items:center;gap:10px;transition:all .15s;font-size:13px;font-weight:400}
+.nav-btn:hover{background:var(--card);color:var(--text)}
+.nav-btn.active{background:var(--accent-dim);color:var(--accent);border-color:#00c2ff60;font-weight:600}
+.nav-btn-dot{margin-left:auto;width:5px;height:5px;border-radius:50%;background:var(--accent);display:none}
+.nav-btn.active .nav-btn-dot{display:block}
+.sidebar-footer{padding:12px 16px;border-top:1px solid var(--border);color:var(--muted);font-size:10px}
+
+/* ─ Main ─ */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);
+  padding:14px 24px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.topbar-title{font-size:20px;font-weight:700;letter-spacing:-.01em}
+.topbar-sub{color:var(--muted);font-size:12px;margin-top:2px}
+.btn-change{background:transparent;color:var(--muted);border:1px solid var(--border);
+  border-radius:8px;padding:6px 14px;font-size:13px;transition:all .15s}
+.btn-change:hover{color:var(--text);border-color:var(--muted)}
+.content{flex:1;overflow-y:auto;padding:20px 24px}
+
+/* ─ Cards ─ */
+.kpi-row{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+.kpi-card{background:var(--card);border:1px solid var(--border);border-radius:12px;
+  padding:16px 20px;min-width:140px;flex:1;position:relative;overflow:hidden}
+.kpi-icon{position:absolute;top:10px;right:14px;font-size:22px;opacity:.18}
+.kpi-label{color:var(--muted);font-size:11px;font-weight:600;text-transform:uppercase;
+  letter-spacing:.08em;margin-bottom:6px}
+.kpi-value{font-size:28px;font-weight:800;font-family:'JetBrains Mono',monospace;line-height:1}
+.kpi-sub{color:var(--muted);font-size:12px;margin-top:5px}
+.kpi-bar{position:absolute;bottom:0;left:0;right:0;height:3px}
+
+/* ─ Filters ─ */
+.filter-bar{background:var(--card);border:1px solid var(--border);border-radius:12px;
+  padding:14px 18px;margin-bottom:16px;display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.filter-input{background:var(--card);color:var(--text);border:1px solid var(--border);
+  border-radius:8px;padding:7px 12px;font-size:13px;outline:none;flex:2;min-width:200px}
+.filter-input:focus{border-color:var(--accent)}
+.filter-select{background:var(--card);color:var(--text);border:1px solid var(--border);
+  border-radius:8px;padding:6px 10px;font-size:13px;outline:none}
+.filter-count{color:var(--muted);font-size:13px;margin-left:auto;white-space:nowrap}
+
+/* ─ Table ─ */
+.table-wrap{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.table-scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead tr{background:var(--surface)}
+th{padding:11px 14px;text-align:left;color:var(--muted);font-weight:600;font-size:11px;
+  text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:9px 14px;border-bottom:1px solid var(--border)}
+tr:last-child td{border-bottom:none}
+tr.alt{background:var(--alt-row)}
+.mono{font-family:'JetBrains Mono',monospace;font-size:12px}
+.badge{border-radius:6px;padding:2px 10px;font-size:12px;font-weight:600;white-space:nowrap;display:inline-block}
+
+/* ─ Pagination ─ */
+.pagination{display:flex;align-items:center;justify-content:space-between;
+  padding:12px 18px;border-top:1px solid var(--border)}
+.page-info{color:var(--muted);font-size:12px}
+.page-btns{display:flex;gap:6px}
+.page-btn{background:var(--card);color:var(--muted);border:1px solid var(--border);
+  border-radius:6px;padding:5px 11px;font-size:13px;font-weight:600;transition:all .15s}
+.page-btn:hover:not(:disabled){background:var(--accent-dim);color:var(--accent);border-color:var(--accent)}
+.page-btn.active{background:var(--accent);color:var(--bg);border-color:var(--accent)}
+.page-btn:disabled{opacity:.3;cursor:not-allowed}
+.btn-change:disabled{opacity:.3;cursor:not-allowed}
+
+/* ─ Chart containers ─ */
+.chart-box{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px 16px 12px;margin-bottom:16px}
+.chart-label{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px}
+.chart-box svg{display:block}
+
+/* ─ Heatmap ─ */
+.heat-cell{width:18px;height:18px;border-radius:3px;display:inline-flex;align-items:center;
+  justify-content:center;font-size:8px;font-weight:700;color:#fff}
+.legend-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.legend-item{border-radius:6px;padding:3px 10px;font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:4px}
+
+/* ─ Ranking ─ */
+.rank-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.rank-num{color:var(--muted);font-size:11px;width:20px;text-align:right}
+.rank-label{flex:1;color:var(--text);font-size:12px;font-weight:500}
+.rank-badge{border-radius:4px;padding:2px 8px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px}
+.rank-bar-track{width:50px;height:4px;background:var(--border);border-radius:2px;overflow:hidden}
+.rank-bar-fill{height:100%;border-radius:2px}
+
+/* ─ Grid ─ */
+.grid-2{display:grid;grid-template-columns:2fr 1fr;gap:16px}
+.grid-col{display:flex;flex-direction:column;gap:16px}
+
+/* ─ Series toggle ─ */
+.series-toggles{background:var(--card);border:1px solid var(--border);border-radius:12px;
+  padding:12px 18px;margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.series-lbl{color:var(--muted);font-size:12px;margin-right:4px}
+.series-btn{border-radius:20px;padding:4px 12px;font-size:12px;font-weight:500;border:1px solid;transition:all .15s}
+
+@media(max-width:768px){
+  .sidebar{width:180px}
+  .grid-2{grid-template-columns:1fr}
+}
+@keyframes blink-incoerente{
+  0%,100%{opacity:1;box-shadow:0 0 4px #ff4d6e99;}
+  50%{opacity:0.3;box-shadow:none;}
+}
+@keyframes blink-retrocesso{
+  0%,100%{opacity:1;}
+  50%{opacity:0.45;}
+}
+@keyframes blink-reparo-alerta{
+  0%,100%{opacity:1;box-shadow:0 0 5px #fb718588;}
+  50%{opacity:0.4;box-shadow:none;}
+}
+.cell-incoerente{animation:blink-incoerente 1.1s ease-in-out infinite;border:1px solid #ff4d6e !important;background:#3a0c18 !important;color:#ff4d6e !important;}
+.cell-retrocesso{animation:blink-retrocesso 1.4s ease-in-out infinite;border:1px solid #ffb830 !important;outline:1px solid #ffb83066;}
+/* Fase → Reparo: transição válida mas sinalizada */
+.cell-reparo-alerta{animation:blink-reparo-alerta 1.2s ease-in-out infinite;border:1px solid #fb7185 !important;}
+/* ─ Status Inválido resolvido — borda tracejada cinza no heatmap ─ */
+.cell-inv-resolvido{border:1px dashed #6b728088 !important;opacity:.75;}
+/* ─ Row inválido resolvido — fundo sutil âmbar ─ */
+tr.row-inv-resolvido td { background: rgba(255,184,48,.04) !important; }
+tr.row-inv-resolvido td.sticky-col { background: rgba(255,184,48,.06) !important; }
+tr.alt.row-inv-resolvido td { background: rgba(255,184,48,.07) !important; }
+tr.alt.row-inv-resolvido td.sticky-col { background: rgba(255,184,48,.09) !important; }
+/* ─ Row hover ─ */
+tbody tr:hover td{background:rgba(0,194,255,.05);transition:background .12s}
+html.light tbody tr:hover td{background:rgba(0,119,204,.05)}
+/* ─ Sortable th ─ */
+th.sortable{cursor:pointer;user-select:none}
+th.sortable:hover{color:var(--accent)}
+th.sort-asc::after{content:' ↑';color:var(--accent);font-size:10px}
+th.sort-desc::after{content:' ↓';color:var(--accent);font-size:10px}
+/* ─ Loading overlay ─ */
+#loading-overlay{position:fixed;inset:0;background:rgba(7,16,31,.85);z-index:8888;
+  display:none;align-items:center;justify-content:center;flex-direction:column;gap:16px}
+#loading-overlay.show{display:flex}
+.loader-ring{width:56px;height:56px;border:4px solid var(--border);
+  border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loader-text{color:var(--muted);font-size:13px;font-weight:500}
+/* ─ Empty state ─ */
+.empty-state{padding:48px 24px;text-align:center;color:var(--muted)}
+/* Badge de variação — evita repetir 4x o mesmo inline style */
+.var-badge{border-radius:5px;padding:2px 8px;font-size:10px;font-weight:700;white-space:nowrap;display:inline-flex;align-items:center;gap:3px}
+.var-novo{background:#06b6d420;color:#06b6d4}
+.var-avancou{background:#00e5a020;color:#00e5a0}
+.var-retrocedeu{background:#ff4d6e20;color:#ff4d6e}
+.var-lateral{background:#ffb83020;color:#ffb830}
+.var-neutro{background:#6b728018;color:#9ca3af}
+.empty-state-icon{font-size:40px;margin-bottom:12px;opacity:.5}
+.empty-state-msg{font-size:14px;font-weight:500;margin-bottom:6px;color:var(--text);opacity:.6}
+.empty-state-sub{font-size:12px}
+/* ─ Expandable row ─ */
+.row-expand{background:var(--surface);font-size:12px;color:var(--muted);
+  padding:8px 14px 12px 48px;border-bottom:1px solid var(--border);display:none;
+  line-height:1.6;white-space:pre-wrap;word-break:break-word;max-width:900px}
+.row-expand.open{display:block}
+/* ─ Sticky first column ─ */
+td.sticky-col,th.sticky-col{
+  position:sticky;left:0;z-index:2;
+  background:var(--card);
+}
+tr.alt td.sticky-col{background:var(--alt-row)}
+thead tr th.sticky-col{background:var(--surface);z-index:3}
+/* ─ Active filter pill ─ */
+.filter-active-dot{
+  display:inline-block;width:7px;height:7px;border-radius:50%;
+  background:var(--accent);margin-left:5px;vertical-align:middle;
+  box-shadow:0 0 5px var(--accent)88;
+}
+/* ─ Duration heat colors ─ */
+.dur-critical{color:#ff4d6e!important;font-weight:800!important}
+.dur-warning {color:#ffb830!important;font-weight:700!important}
+/* ─ Export feedback ─ */
+@keyframes flash-green{0%,100%{background:var(--accent-dim);color:var(--accent);border-color:var(--accent)}
+  50%{background:#00e5a030;color:#00e5a0;border-color:#00e5a0}}
+.btn-export-ok{animation:flash-green .6s ease 2}
+</style>
+</head>
+<body>
+<!-- ─ Loading overlay ─ -->
+<div id="loading-overlay">
+  <div class="loader-ring"></div>
+  <div class="loader-text" id="loading-text">Carregando arquivo…</div>
+</div>
+
+<!-- ═══════════════════ UPLOAD SCREEN ═══════════════════ -->
+<div id="upload-screen">
+  <div class="upload-logo">📡</div>
+  <div class="upload-title">GIS Primário</div>
+  <div class="upload-sub">Sistema de Análise de Circuitos — Lotéricas CEF</div>
+  <div class="drop-zone" id="drop-zone" onclick="$el('file-input').click()">
+    <div class="drop-icon">📂</div>
+    <div class="drop-title">Clique para selecionar ou arraste o arquivo</div>
+    <div class="drop-hint">Formato: .xlsx  •  GIS Primário - Apuração</div>
+  </div>
+  <input type="file" id="file-input" accept=".xlsx" style="display:none" onchange="onFileChange(event)"/>
+  <div id="upload-hist-hint" style="margin-top:16px;font-size:11px;color:var(--muted);text-align:center;min-height:16px"></div>
+  <div class="upload-pills">
+    <span class="pill">📋 Base de Dados</span>
+    <span class="pill">📈 Evolução</span>
+    <span class="pill">🚫 Não Migração</span>
+    <span class="pill">🔄 Evolução do Problema</span>
+    <span class="pill">✅ Migração</span>
+  </div>
+</div>
+
+<!-- ═══════════════════ APP SHELL ═══════════════════ -->
+<div id="app-shell">
+  <div class="shell-inner">
+    <div class="sidebar">
+      <div class="sidebar-logo">
+        <div class="sidebar-logo-row">
+          <span class="sidebar-logo-icon">📡</span>
+          <div>
+            <div class="sidebar-logo-name">GIS Primário</div>
+            <div class="sidebar-logo-sub">Análise de Circuitos</div>
+          </div>
+        </div>
+        <div class="sidebar-file" id="sb-file">—</div>
+        <div class="sidebar-count" id="sb-count"></div>
+      </div>
+      <nav class="sidebar-nav" id="sidebar-nav"></nav>
+      <div class="sidebar-footer" id="sidebar-footer">CEF • Lotéricas • Fev 2026</div>
+    </div>
+    <div class="main">
+      <div class="topbar">
+        <div>
+          <div class="topbar-title" id="tb-title"></div>
+          <div class="topbar-sub" id="tb-sub"></div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:4px 10px">
+            <span style="color:var(--muted);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em">📅 Data:</span>
+            <button class="btn-change" id="day-prev-btn" onclick="shiftDay(-1)" style="padding:3px 8px;font-size:14px;border:none;background:transparent">‹</button>
+            <select id="day-select" class="filter-select" onchange="switchDay(this.value)" style="font-weight:700;color:var(--accent);border:none;background:transparent;padding:2px 4px;min-width:90px"></select>
+            <button class="btn-change" id="day-next-btn" onclick="shiftDay(1)" style="padding:3px 8px;font-size:14px;border:none;background:transparent">›</button>
+          </div>
+          <button class="btn-change" id="theme-btn" onclick="toggleTheme()" title="Alternar tema">🌙</button>
+          <button class="btn-change" onclick="exportExcel()" id="btn-export" title="Exportar Excel atualizado" style="background:var(--accent-dim);color:var(--accent);border-color:var(--accent)">⬇ Exportar Excel</button>
+          <button class="btn-change" onclick="changeFile()">↩ Trocar arquivo</button>
+        </div>
+      </div>
+      <div class="content" id="content"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// DATA STORE
+// ═══════════════════════════════════════════════════════
+const DS = {};
+
+const PROBLEM = {
+  "Migração para Fibra":       {bg:"#0e2040",text:"#60a5fa",dot:"#3b82f6",abbr:"MF",chart:"#3b82f6"},
+  "Fase de Viabilidade":       {bg:"#2d1a00",text:"#fbbf24",dot:"#f59e0b",abbr:"FV",chart:"#f59e0b"},
+  "Roteador":                  {bg:"#1e0d38",text:"#c084fc",dot:"#a855f7",abbr:"RT",chart:"#a855f7"},
+  "Reparo":                    {bg:"#2d0912",text:"#fb7185",dot:"#f43f5e",abbr:"RP",chart:"#f43f5e"},
+  "Estação Obsoleta":          {bg:"#042010",text:"#34d399",dot:"#10b981",abbr:"EO",chart:"#10b981"},
+  "Obstrução Infraestrutura":  {bg:"#201000",text:"#fb923c",dot:"#f97316",abbr:"OI",chart:"#f97316"},
+  "Status Inválido":           {bg:"#14141e",text:"#6b7280",dot:"#4b5563",abbr:"??",chart:"#4b5563"},
+};
+
+// Paleta unificada — mesmas cores usadas em PROBLEM.chart acima
+// Total/Alarmados = azul-ciano accent; cada categoria = sua cor canônica
+const XL = {
+  accent1: '#3b82f6', // azul        → Migração para Fibra
+  accent2: '#f59e0b', // amarelo     → Fase de Viabilidade
+  accent3: '#a855f7', // roxo        → Roteador
+  accent4: '#10b981', // verde       → Estação Obsoleta
+  accent5: '#00c2ff', // ciano       → Total / Circuitos Alarmados
+  accent6: '#f97316', // laranja     → Obstrução Infraestrutura
+  reparo:  '#f43f5e', // vermelho    → Reparo
+  prazo:   '#ff4d6e', // rosa-verm   → Prazo Vencido
+  muted:   '#6b7280', // cinza       → Status Inválido / Sem Prazo
+  dk2:     '#0E2841',
+  lt2:     '#E8E8E8',
+};
+// Aliases semânticos derivados de XL — evitam magic strings de cor
+const C = {
+  avancou:    '#00e5a0',
+  retrocedeu: '#ff4d6e',
+  lateral:    '#ffb830',
+  novo:       '#06b6d4',
+  neutro:     '#9ca3af',
+};
+// Séries do gráfico de Evolução (mesma ordem das categorias)
+const SERIES_C = [XL.accent1, XL.accent2, XL.accent3, XL.accent4, XL.accent6, XL.reparo, XL.accent5, '#84cc16'];
+// Não Migração — faixas de Reparo por duração (tons escalonados do vermelho ao crítico)
+const NM_C = ['#fb923c', '#f87171', '#f43f5e', '#be123c'];
+const TABS = [
+  {id:"db", icon:"📋", label:"Base de Dados"},
+  {id:"ev", icon:"📈", label:"Evolução"},
+  {id:"nm", icon:"🚫", label:"Não Migração"},
+  {id:"ep", icon:"🔄", label:"Evolução do Problema"},
+  {id:"mg", icon:"✅", label:"Migração"},
+];
+let currentTab = "db";
+
+// ── Utilitários DOM ────────────────────────────────────────────────────────────
+// $el(id) substitui document.getElementById — 57 chamadas no código
+const $el = id => document.getElementById(id);
+
+/** Fatia um array para paginação. @returns {{rows, totalPages, page}} */
+function paginate(filtered, perPage, page){
+  const totalPages = Math.ceil(filtered.length / perPage) || 1;
+  const safePage   = Math.min(page, totalPages - 1);
+  return {
+    rows:       filtered.slice(safePage * perPage, (safePage + 1) * perPage),
+    totalPages,
+    page:       safePage,
+  };
+}
+
+/** Gera HTML dos botões de paginação. @param {string} onPage nome da fn global de página */
+function renderPagination(page, totalPages, total, total0, onPage){
+  const start = Math.max(0, Math.min(page - 2, totalPages - 5));
+  const pbtns = Array.from({length: Math.min(5, totalPages)}, (_, i) => {
+    const p = start + i;
+    return '<button class="page-btn'+(p===page?' active':'')+'" onclick="'+onPage+'('+p+')">'+(p+1)+'</button>';
+  }).join('');
+  return '<span class="page-info">Página '+(page+1)+' de '+totalPages+' &nbsp;·&nbsp; '+total+' registro'+(total!==1?'s':'')+'</span>'
+    +'<div class="page-btns">'
+    +'<button class="page-btn" onclick="'+onPage+'(0)" '+(page===0?'disabled':'')+'>«</button>'
+    +'<button class="page-btn" onclick="'+onPage+'('+(page-1)+')" '+(page===0?'disabled':'')+'>‹</button>'
+    +pbtns
+    +'<button class="page-btn" onclick="'+onPage+'('+(page+1)+')" '+(page>=totalPages-1?'disabled':'')+'>›</button>'
+    +'<button class="page-btn" onclick="'+onPage+'('+(totalPages-1)+')" '+(page>=totalPages-1?'disabled':'')+'>»</button>'
+    +'</div>';
+}
+
+// ═══════════════════════════════════════════════════════
+// FILE LOAD
+// ═══════════════════════════════════════════════════════
+function onFileChange(e){ loadFile(e.target.files[0]); }
+function loadFile(file){
+  if(!file) return;
+  // Reset estado de visualização para novo arquivo
+  evVisible.clear();
+  evGroup = 'problemas';
+  dbState = {search:'',uf:'Todos',regional:'Todos',problema:'Todos',variacao:'Todos',page:0};
+  // Loading overlay
+  const ov = $el('loading-overlay');
+  const lt = $el('loading-text');
+  if(ov){ ov.classList.add('show'); if(lt) lt.textContent='Lendo ' + file.name + '…'; }
+  const reader = new FileReader();
+  reader.onload = ev => {
+    // Pequeno delay para o overlay aparecer antes do parse pesado
+    setTimeout(() => {
+      try{
+        if(lt) lt.textContent='Classificando circuitos…';
+        const wb = XLSX.read(ev.target.result, {type:"array", cellDates:true});
+        parseAll(wb, file.name);
+        if(ov) ov.classList.remove('show');
+        showApp(file.name);
+      }catch(err){
+        if(ov) ov.classList.remove('show');
+        alert("Erro ao ler arquivo: "+err.message);
+      }
+    }, 30);
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// Drag & drop
+const dz = $el('drop-zone');
+dz.addEventListener('dragover', e=>{ e.preventDefault(); dz.classList.add('drag'); });
+dz.addEventListener('dragleave', ()=> dz.classList.remove('drag'));
+dz.addEventListener('drop', e=>{ e.preventDefault(); dz.classList.remove('drag'); loadFile(e.dataTransfer.files[0]); });
+
+// ═══════════════════════════════════════════════════════
+// PARSERS
+// ═══════════════════════════════════════════════════════
+function fixStr(v){
+  if(v==null) return "";
+  return String(v).trim();
+}
+
+// ── Corrige UTF-8 lido como Latin-1 (mojibake) ──
+function fixMojibake(s){
+  for(let i=0;i<s.length-1;i++){
+    const a=s.charCodeAt(i), b=s.charCodeAt(i+1);
+    if(a>=0xC0&&a<=0xDF&&b>=0x80&&b<=0xBF){
+      try{
+        const bytes=new Uint8Array(s.length);
+        for(let j=0;j<s.length;j++) bytes[j]=s.charCodeAt(j)&0xFF;
+        const dec=new TextDecoder('utf-8').decode(bytes);
+        if(!dec.includes('\uFFFD')) return dec;
+      }catch(e){}
+      break;
+    }
+  }
+  return s;
+}
+
+// ── Remove acentos + minúsculas → comparação simples sem regex [cç][aã] ──
+function norm(s){
+  return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+}
+
+// ── Classificador por pontuação ──
+// Cada categoria acumula pontos; vence quem tiver mais.
+// Textos novos e variações de redação são captados automaticamente
+// porque comparamos palavras normalizadas, não frases exatas.
+function classifyProblem(rawStatus){
+  if(!rawStatus) return 'Status Inválido';
+  const s = fixMojibake(String(rawStatus).trim());
+  if(!s || s.length < 4) return 'Status Inválido';
+
+  const sl = s.toLowerCase();
+  // Palavras/tokens sem informação de categoria
+  const INVALIDOS = new Set(['-','.',',','..','ativa',
+    'oi legado','n/a','ok','mam','sitelbra','ars','req','fix','']);
+  if(INVALIDOS.has(sl)) return 'Status Inválido';
+  // Textos curtos de status operacional → Reparo direto (sem passar pelo histórico)
+  if(/^(oemp|novo|triagem|massiva|fibra|cec analisando|aguardando oi)$/i.test(sl)) return 'Reparo';
+  // Códigos de chamado (ARS-000..., FIX-000..., REQ000...)
+  if(/^(ars|fix|req|sitelbra)[\s\-]*[\d\.]+$/i.test(s)) return 'Status Inválido';
+  if(/^chamado\s+(ars|fix|req)[\s\-]*\d+/i.test(s))     return 'Status Inválido';
+  if(/^ser[aá] tratado na req\d+/i.test(s))              return 'Status Inválido';
+
+  const t = norm(s); // sem acentos, minúsculo — base de todas as comparações
+  const sc = {MF:0, FV:0, EO:0, RT:0, OI:0, RP:0};
+  const inc  = (...ws) => ws.every(w => t.includes(w));
+  const any  = (...ws) => ws.some(w  => t.includes(w));
+  const add  = (cat, pts) => { sc[cat] += pts; };
+
+  // ── Contexto compartilhado ────────────────────────────────
+  const hasFibra  = any('fibra','optica');
+  const hasMigra  = any('migracao','migrando','migrar','migrada','migrado');
+  const hasRompto = any('rompimento','rompeu','rompido','romperam');
+  const hasInstal = any('instalacao','instalando','instalar','implantacao',
+                        'ativacao','habilitacao','provisionamento','lancamento','splitter');
+  const hasPrazo  = any('previsao de conclusao','previsao de entrega',
+                        'previsao de migracao','prazo de conclusao');
+  const hasRepCtx = any('falha','testes','verificar','recuperacao','rompimento');
+
+  // ── ROTEADOR — instalação/pendência = RT; falha/verificação = Reparo ─────
+  const hasInstalRT = any('pendente instalacao','instalacao do cpe','instalacao de roteador',
+                          'pendente de roteador','roteador pendente','novo roteador');
+  const hasFalhaRT  = any('verificar roteador','falha no roteador','trocar roteador',
+                          'substituir roteador','roteador com defeito','defeito no roteador',
+                          'roteador danificado','problema no roteador','roteador inoperante');
+  if(t.includes('roteador')){
+    if(hasInstalRT)        add('RT', 26);       // instalação = forte sinal RT
+    else if(hasFalhaRT)  { add('RP', 18); add('RT', 4); } // falha no roteador = Reparo
+    else                   add('RT', 14);       // menção genérica
+  }
+  if(t.includes('meraki'))   add('RT', 22);
+  if(t.includes('instalacao do cpe')) add('RT', 26); // CPE = instalação de roteador
+  // Migração CONCLUÍDA que agora precisa instalar roteador → RT não MF
+  if(t.includes('concluida') && any('instalacao do cpe','instalacao do roteador','configuracao do roteador')) add('RT', 30);
+  if(t.includes('concluida') && t.includes('roteador') && hasMigra) { add('RT', 26); sc.MF = Math.max(0, sc.MF-20); }
+  if(t.includes(' cpe') && any('instalar','instalando','substituir','trocar','pendente')) add('RT', 22);
+
+  // ── ESTAÇÃO OBSOLETA ─────────────────────────────────────
+  if(t.includes('obsoleto')){
+    if(hasMigra || hasFibra) add('FV', 20); // obsoleto que precisa de migração → FV
+    else add('EO', 22);                       // obsoleto sem saída prevista → EO
+  }
+  if(t.includes('migracao de estacao')){
+    if(t.includes('viabilidade') || t.includes('o.s') || t.includes('necessario')) add('FV', 22);
+    else add('EO', 16); // migração de estação sem contexto de viabilidade
+  }
+  if(t.includes('fim de vida'))         add('EO', 20);
+  if(inc('irrecuperavel') && any('equipamento','transmissao','estacao')){
+    if(hasMigra || hasFibra) add('FV', 22); // irrecuperavel + migracao = FV, nao EO
+    else add('EO', 20);
+  }
+  // "será necessário migração de estação" / "processo de migração de estação" → FV
+  if(any('sera necessario migracao','necessario migracao de estacao',
+         'processo de migracao de estacao','em processo de migracao de estacao')) add('FV', 22);
+  if(inc('equipamento','transmissao') && any('defeito','danificado','substituic')) add('EO', 14);
+
+  // ── FASE DE VIABILIDADE ───────────────────────────────────
+  if(t.includes('viabilidade'))               add('FV', 22);
+  // "fase de viabilidade para/de migração" — viabilidade precede migração
+  if(t.includes('viabilidade') && hasMigra)     add('FV', 14); // reforço: viabilidade supera migração
+  if(t.includes('fase de viabilidade'))         add('FV', 24); // frase exata = sinal forte
+  if(t.includes('par metalico'))              add('FV', 22);
+  if(t.includes('inviavel'))                  add('FV', 20);
+  if(t.includes('pendencia administrativa'))  add('FV', 20);
+  if(t.includes('sem solucao tecnica'))       add('FV', 20);
+  if(t.includes('descontinuada') && any('sem previsao','nao temos previsao','sem perspectiva')) add('FV', 22);
+  if(t.includes('descontinuada') && any('metalica','metalico','estacao','massiva')) add('FV', 20);
+  if(inc('irrecuperavel') && t.includes('metalic')) add('FV', 20);
+  if(inc('descontinuacao') && any('par metalico','servico')) add('FV', 20);
+  if(any('aguardando abertura de o.s','aguardando abertura de os')) add('FV', 24);
+  if(inc('pendente','abertura') && any(' os ','o.s','chamado')) add('FV', 18);
+  if(inc('nao','aberto') && any(' os ','o.s','chamado'))       add('FV', 16);
+  if(inc('levantamento') && any('tecnico','campo','viabilidade')) add('FV', 12);
+  if(t.includes('estudo de viabilidade')) add('FV', 24); // estudo de viabilidade = FV forte
+
+  // ── OBSTRUÇÃO INFRAESTRUTURA ──────────────────────────────
+  if(t.includes('obstrucao'))      add('OI', 22);
+  if(t.includes('zona de risco'))  add('OI', 22);
+  if(inc('impossivel') && any('passagem','lancar','instalar')) add('OI', 18);
+  if(inc('nao','possivel','passagem')) add('OI', 18);
+
+  // ── MIGRAÇÃO PARA FIBRA ───────────────────────────────────
+  if(hasMigra && hasFibra)                                  add('MF', 22);
+  else if(hasMigra && any('em andamento','em processo','em execucao')) add('MF', 20);
+  else if(hasMigra)                                         add('MF', 14);
+  if(hasFibra && hasInstal && !hasRompto)                   add('MF', 18);
+  if(hasFibra && hasPrazo)                                  add('MF', 16);
+  if(hasFibra && any('em andamento','em processo','em execucao') && !hasRompto) add('MF', 16);
+  if(hasFibra && t.includes('tentativa de passagem')) add('MF', 18); // tentativa de passagem de fibra = MF
+  if(inc('continuidade') && any('novo chamado','nova tratativa'))  add('MF', 14);
+  if(inc('chamado','fechado') && any('continuidade','novo chamado')) add('MF', 14);
+  if(inc('reagendamento') && hasFibra && hasInstal)         add('MF', 18);
+  if(hasFibra && hasInstal && !hasRompto && !hasRepCtx)     add('MF',  8); // reforço suave
+  // lançamento de fibra DENTRO de projeto de migração = MF
+  if(t.includes('lancamento de fibra')) add('MF', 20); // lançamento de fibra = execução da migração
+  ['processo de instalacao na loterica','processo de migracao',
+   'em fase de migracao','migracao de fibra','migracao em andamento',
+   'migracao de tecnologia','seguindo projeto'].forEach(p => { if(t.includes(p)) add('MF', 22); });
+  // 'instalacao de fibra' só é MF quando há contexto de migração
+  if(t.includes('instalacao de fibra') && hasMigra) add('MF', 22);
+  if(t.includes('instalacao de fibra') && !hasMigra && t.includes('viabilidade')) add('FV', 10);
+
+  // ── REPARO ────────────────────────────────────────────────
+  if(hasRompto)                     add('RP', 22); // rompimento = sempre reparo
+  if(t.includes('reparo'))          add('RP', 22);
+  if(t.includes('inoperante'))      add('RP', 18);
+  if(t.includes('sem mikrotik'))    add('RP', 18);
+  if(t.includes('retirada indevida')) add('RP', 16);
+  if(t.includes('massiva') && s.length > 15) add('FV', 18); // massiva em texto longo = FV
+  if(t.includes('recuperacao'))     add('RP', 12);
+  if(t.includes('nova triagem'))    add('RP', 16);
+  if(t.includes('triagem') && s.length > 20) add('RP', 12);
+  if(t.includes('diagnostico'))     add('RP', 14);
+  if(t.includes('causa raiz'))      add('RP', 16);
+  if(t.includes('suporte avancado'))add('RP', 16);
+  if(t.includes('ultima milha'))    add('RP', 16);
+  if(t.includes('backup') || t.includes('4g')) add('RP', 12);
+  if(any('reiteracao','reiterar'))  add('RP', 14);
+  if(inc('devolvido','tratativa'))  add('RP', 14);
+  if(t.includes('ponto de falha'))  add('RP', 16);
+  if(t.includes('tracando rota'))   add('RP', 14);
+  if(inc('meio de transmissao') && any('falha','interrupcao','rompimento')) add('RP', 16);
+  if(t.includes('circuito em testes'))  add('RP', 16);
+  if(inc('normalizacao','atendimento')) add('RP', 16);
+  if(t.includes('interrupcao'))     add('RP', 10);
+  if(any('queimado','danificado') && !t.includes('roteador')) add('RP', 12);
+  if(t.includes('insucesso'))       add('RP', 12);
+  if(t.includes('duplicidade'))     add('RP', 10);
+  if(t.includes('sem sucesso'))     add('RP', 12);
+  if(any('sem energia','energia desativada','energia eletrica') && any('estacao','concessionaria','desativada')) add('RP', 12);
+  if(t.includes('dara continuidade')) add('RP', 10);
+  if(inc('sendo analisado') && any('equipe','chamado','parceira')) add('RP', 12);
+  if(inc('sendo tratado') && any('operadora','chamado','equipe'))  add('RP', 12);
+  if(any('reconectar','reconexao'))  add('RP', 12);
+  if(t.includes('sem retorno'))      add('RP', 10);
+  if(t.includes('monitoracao'))      add('RP', 10);
+  if(inc('em tratativa') && any('equipe','transmissao','chamado','operadora')) add('RP', 12);
+  if(t.includes('segue em tratativa')) add('RP', 12);
+  if(t.includes('visita') && !hasMigra && !hasInstal) add('RP', 10);
+  if(t.includes('agendado') && !hasMigra && !hasInstal) add('RP', 10);
+  if(t.includes('atuando') && any('local','estacao','recuperacao','chamado')) add('RP', 12);
+  if(inc('liberacao') && any('tecnico','acesso')) add('RP', 10);
+  if(t.includes('falha') && any('rede','link','cpe','transmissao','cabo','radio','rota','fibra') && !hasMigra) add('RP', 10);
+  if(any('energia eletrica','energia desativada') && any('concessionaria','estacao')) add('RP', 12);
+  if(any('iniciou o atendimento','iniciamos o atendimento','equipe de nivel')) add('RP', 12);
+  if(any('equipe de transmissao') && any('atuando','realizando','configuracao','testes','reconfigurac')) add('RP', 12);
+  if(any('equipe','tecnico') && any('testes','medicao','verificar','verificando','identificar','diagnosticar') && !hasMigra) add('RP', 12);
+  if(any('equipe','tecnico') && any('deslocamento','desloc')) add('RP', 12);
+  if(any('equipe','tecnico') && t.includes('atuando'))       add('RP', 10);
+  if(any('equipe','tecnico') && t.includes('campo') && !hasMigra) add('RP',  8);
+  if(t.includes('aberto') && t.includes('chamado') && !hasMigra) add('RP',  8);
+  if(t.includes('aguardando') && any('oi','operadora','equipe','retorno','peca','material','mam')) add('RP', 12);
+  if(any('tentativas de contato','tentativa de contato')) add('RP', 10);
+  if(any('escalonado','escalonada') && !t.includes('roteador')) add('RP', 12);
+
+  // ── Penalizações cruzadas ─────────────────────────────────
+  if(hasRompto)            sc.MF = Math.max(0, sc.MF - 18); // rompimento ≠ migração
+  if(hasMigra && hasFibra) sc.RP = Math.max(0, sc.RP - 12); // migração reduz reparo
+  // "Equipamentos obsoletos... necessário migração para fibra" → MF, não EO
+  if(hasMigra && hasFibra) sc.EO = Math.max(0, sc.EO - 14);
+  // Fibra + falha/testes sem migração = Reparo, não MF
+  if(hasFibra && !hasMigra && !hasInstal && any('falha','atuando','testes','verificar','recuperacao')){
+    sc.MF = Math.max(0, sc.MF - 12);
+  }
+
+  // ── Resultado ─────────────────────────────────────────────
+  const best = Object.entries(sc).sort((a,b) => b[1]-a[1])[0];
+  if(best[1] < 6) return 'Status Inválido';
+  return {MF:'Migração para Fibra', FV:'Fase de Viabilidade', EO:'Estação Obsoleta',
+          RT:'Roteador', OI:'Obstrução Infraestrutura', RP:'Reparo'}[best[0]];
+}
+function fmtD(d){
+  if(!d) return "";
+  if(d instanceof Date) return d.toLocaleDateString("pt-BR");
+  if(typeof d==="number"&&d>40000) return new Date((d-25569)*86400*1000).toLocaleDateString("pt-BR");
+  return String(d).slice(0,10);
+}
+function fmtDT(d){
+  if(!d) return "";
+  if(d instanceof Date) return d.toLocaleString("pt-BR").slice(0,16);
+  return fmtD(d);
+}
+const _fmtNCache = new Map();
+function fmtN(n){
+  if(n==null) return "—";
+  if(_fmtNCache.has(n)) return _fmtNCache.get(n);
+  const s = Number(n).toLocaleString("pt-BR");
+  _fmtNCache.set(n, s);
+  return s;
+}
+
+function parseAll(wb, fname){
+  DS.fname = fname;
+  DS.wb = wb;
+
+  console.log('%c[GIS] Abas:', 'color:#00c2ff;font-weight:bold', wb.SheetNames);
+
+  const gisSheets = wb.SheetNames
+    .filter(s => /^GIS\s+\d{2}-\d{2}$/i.test(s.trim()))
+    .sort((a, b) => sheetSortVal(a) - sheetSortVal(b));
+
+  DS.gisSheetNames = gisSheets;
+  DS.selectedDayIdx = gisSheets.length - 1;
+
+  DS.gisCache = {};
+  gisSheets.forEach(name => { DS.gisCache[name] = readGisSheet(wb, name); });
+
+  // Persiste todos os dias carregados no histórico ANTES de parsear GIS
+  // (para que o histórico esteja disponível mesmo na primeira aba)
+  histMergeFromCache();
+
+  DS.gis = parseGIS(wb, gisSheets, DS.selectedDayIdx);
+  DS.evolucao = parseEvolucao(wb);
+  DS.naoMig = parseNaoMig(wb);
+  DS.evolProblema = parseEvolProblema(wb);
+  DS.migracao = parseMigracao(wb);
+
+  console.log('%c[GIS] Parse completo:', 'color:#00e5a0',
+    'GIS:', DS.gis.length,
+    '| Evol séries:', DS.evolucao.series.length,
+    '| NãoMig:', DS.naoMig.length,
+    '| EvolProb:', DS.evolProblema.records.length,
+    '| Migração:', DS.migracao.length,
+    '| Hist dias:', histGetStats().days
+  );
+}
+
+// Troca o dia visualizado (chamado pelo seletor de data)
+function switchDay(sheetName){
+  const idx = DS.gisSheetNames.indexOf(sheetName);
+  if(idx < 0) return;
+  DS.selectedDayIdx = idx;
+  DS.gis = parseGIS(DS.wb, DS.gisSheetNames, idx);
+  _dbLastGis = null; // força rebuild completo no próximo renderDB()
+  // Resetar filtros de paginação
+  dbState.page = 0;
+  // Atualizar sidebar
+  $el('sb-count').textContent = DS.gis.length + ' registros';
+  updateDaySelector();
+  // Atualizar título/sub da topbar
+  const t = TABS.find(x=>x.id===currentTab);
+  if(t) $el('tb-title').textContent = t.icon+' '+t.label;
+  const subs={
+    db:`${DS.gis.length} circuitos • ${DS.currSheetName} vs ${DS.prevSheetName}`,
+    ev:`${DS.evolucao.series.length} séries — ${DS.gisSheetNames ? DS.gisSheetNames.length : DS.evolucao.chart.length} pontos temporais`,
+    nm:`${DS.naoMig.length} referências — Circuitos sem migração por faixa de horas`,
+    ep:`${DS.evolProblema.records.length} lotéricas — Histórico de classificação diária`,
+    mg:`${DS.migracao.length} dias registrados — Circuitos migrados para fibra`,
+  };
+  $el('tb-sub').textContent = subs[currentTab]||'';
+  // Re-renderizar aba ativa
+  const renders={db:renderDB,ev:renderEV,nm:renderNM,ep:renderEP,mg:renderMG};
+  renders[currentTab]();
+}
+
+function shiftDay(delta){
+  const newIdx = DS.selectedDayIdx + delta;
+  if(newIdx < 0 || newIdx >= DS.gisSheetNames.length) return;
+  switchDay(DS.gisSheetNames[newIdx]);
+}
+
+function updateDaySelector(){
+  const sel = $el('day-select');
+  if(!sel) return;
+  // Reconstrói opções se necessário
+  if(sel.options.length !== DS.gisSheetNames.length){
+    sel.innerHTML = DS.gisSheetNames.map(n =>
+      `<option value="${n}">${n.replace('GIS ','')}</option>`
+    ).join('');
+  }
+  sel.value = DS.gisSheetNames[DS.selectedDayIdx];
+  // Botões prev/next
+  const prev = $el('day-prev-btn');
+  const next = $el('day-next-btn');
+  if(prev) prev.disabled = DS.selectedDayIdx === 0;
+  if(next) next.disabled = DS.selectedDayIdx === DS.gisSheetNames.length - 1;
+}
+
+// ═══════════════════════════════════════════════════════
+// CATEGORIAS VÁLIDAS — MF / FV / RT / EO
+// Status Inválido é resolvido para a última ocorrência destas
+// ═══════════════════════════════════════════════════════
+const VALID_CATS = new Set(['Migração para Fibra','Fase de Viabilidade','Roteador','Estação Obsoleta']);
+
+// Lê uma aba GIS e popula o cache: cod → {problema, rawProblema, invalidoResolvido,
+//   ultimoStatusValido, statusText, duracao, prazoVencido, loterica, uf}
+// · problema = status resolvido (se inválido → última categoria válida)
+// · rawProblema = classificação bruta (pode ser 'Status Inválido')
+// Como DS.gisSheetNames já está populado antes desta chamada, buscamos histórico
+// nos sheets anteriores que já foram processados nesta mesma sessão.
+function readGisSheet(wb, sheetName) {
+  const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], {header:1, raw:true});
+  const shDate = sheetNameToDate(sheetName); shDate.setHours(0,0,0,0);
+  const currIdx = DS.gisSheetNames ? DS.gisSheetNames.indexOf(sheetName) : -1;
+  const map = {};
+  rows.slice(1).forEach(r => {
+    if (!r[0]) return;
+    const cod       = fixStr(String(r[0])).trim();
+    const statusRaw = fixStr(String(r[14]||''));
+    const rawProblema = classifyProblem(statusRaw);
+    let problema = rawProblema;
+    let invalidoResolvido = false;
+    let ultimoStatusValido = null;
+    let ultimoStatusValidoData = null;
+
+    // ── Resolve "Status Inválido" → última categoria válida ──
+    if (rawProblema === 'Status Inválido') {
+      // 1. Busca nos sheets anteriores já cacheados (mais recente → mais antigo)
+      if (currIdx > 0) {
+        for (let i = currIdx - 1; i >= 0; i--) {
+          const prevC = DS.gisCache && DS.gisCache[DS.gisSheetNames[i]];
+          if (prevC && prevC[cod]) {
+            const cand = prevC[cod].rawProblema || prevC[cod].problema;
+            if (VALID_CATS.has(cand)) {
+              ultimoStatusValido = cand;
+              ultimoStatusValidoData = DS.gisSheetNames[i].replace('GIS ','');
+              problema = cand; invalidoResolvido = true;
+              break;
+            }
+          }
+        }
+      }
+      // 2. Fallback: histórico salvo no localStorage (sheets de arquivos anteriores)
+      if (!invalidoResolvido) {
+        try {
+          const h = JSON.parse(localStorage.getItem(HIST_KEY)||'{}');
+          const sv = sheetSortVal(sheetName);
+          const sorted = Object.keys(h)
+            .filter(s => /^GIS\s+\d{2}-\d{2}$/i.test(s.trim()) && sheetSortVal(s) < sv)
+            .sort((a,b) => sheetSortVal(b) - sheetSortVal(a));
+          for (const sn of sorted) {
+            const entry = h[sn][cod];
+            if (entry && VALID_CATS.has(entry)) {
+              ultimoStatusValido = entry;
+              ultimoStatusValidoData = sn.replace('GIS ','');
+              problema = entry; invalidoResolvido = true;
+              break;
+            }
+          }
+        } catch(e){}
+      }
+      // 3. Sem histórico → classifica como Reparo com alerta
+      if (!invalidoResolvido) {
+        problema = 'Reparo';
+        // invalidoSemHistorico será true — badge de alerta diferente
+      }
+    }
+
+    const invalidoSemHistorico = rawProblema === 'Status Inválido' && !invalidoResolvido;
+    const previsao = xlSerialToDate(r[13]);
+    const temPrevisao = !!(r[13] || r[13] === 0) && previsao;
+    map[cod] = {
+      problema, rawProblema, invalidoResolvido, invalidoSemHistorico,
+      ultimoStatusValido, ultimoStatusValidoData,
+      statusText:   statusRaw,
+      duracao:      r[9] ? Math.round(Number(r[9])) : 0,
+      prazoVencido: !!(temPrevisao && previsao < shDate),
+      semPrazo:     !temPrevisao,
+      loterica:     fixStr(String(r[1]||'')),
+      uf:           fixStr(String(r[4]||'')),
+    };
+  });
+  return map;
+}
+
+function parseGIS(wb, gisSheets, idx){
+  const i = (idx !== undefined) ? idx : gisSheets.length - 1;
+  const currName = gisSheets[i];
+
+  const {map: prevMap, name: prevName} = histGetPrevMap(currName, gisSheets);
+  DS.prevSheetName = prevName || '—';
+  DS.currSheetName = currName || '—';
+
+  const currCache = DS.gisCache[currName] || {};
+
+  const rows = XLSX.utils.sheet_to_json(wb.Sheets[currName], {header:1, raw:true});
+  return rows.slice(1).filter(r=>r[0]).map(r=>{
+    const cod       = fixStr(String(r[0])).trim();
+    const statusRaw = fixStr(String(r[14]||''));
+
+    // Puxa tudo do cache (já com resolução de Status Inválido)
+    const ce = currCache[cod] || {};
+    const problema           = ce.problema           || classifyProblem(statusRaw);
+    const rawProblema        = ce.rawProblema         || problema;
+    const invalidoResolvido  = ce.invalidoResolvido   || false;
+    const invalidoSemHistorico = ce.invalidoSemHistorico || false;
+    const ultimoStatusValido = ce.ultimoStatusValido  || null;
+    const ultimoStatusValidoData = ce.ultimoStatusValidoData || null;
+
+    const prev            = prevMap[cod] || null;
+    const problemaPrev    = prev ? prev.problema                        : null;
+    // rawProblema do dia anterior — disponível se vier do gisCache, mesmo que '' do histórico
+    const prevRawProblema = prev ? (prev.rawProblema || prev.problema)  : null;
+    const statusMudou     = !!prev && problemaPrev !== problema;
+    const statusNovo      = !prev;
+
+    const rec = {
+      cod, loterica:   fixStr(String(r[1]||'')),
+      tipoLink:   fixStr(String(r[2]||'')),
+      cidade:     fixStr(String(r[3]||'')),
+      uf:         fixStr(String(r[4]||'')),
+      empresa:    fixStr(String(r[10]||'')),
+      chamado:    fixStr(String(r[12]||'')),
+      previsao:     fmtD(r[13]),
+      previsaoVazia: !r[13] && r[13] !== 0,
+      statusText: statusRaw,
+      problema, rawProblema, invalidoResolvido, invalidoSemHistorico,
+      ultimoStatusValido, ultimoStatusValidoData,
+      problemaPrev, prevRawProblema, statusMudou, statusNovo,
+      migracaoReal: problema === 'Migração para Fibra',
+      prazoVencido: ce.prazoVencido || false,
+      semPrazo:     ce.semPrazo !== undefined ? ce.semPrazo : (!r[13] && r[13] !== 0),
+      regional:   fixStr(String(r[18]||'')),
+      tecnologia: fixStr(String(r[19]||'')),
+      siteOwner:  fixStr(String(r[20]||'')),
+      duracao:    r[9]?Math.round(Number(r[9])):0,
+      dataInicial:fmtDT(r[8]),
+    };
+    // Pré-computa campos derivados usados no filter e render — evita recalculo por linha
+    rec._varDir = _computeVarDir(rec);
+    rec._hay    = [rec.loterica, rec.cidade, rec.cod, rec.empresa,
+                   rec.chamado, rec.regional, rec.statusText, rec.uf]
+                  .join('|').toLowerCase();
+    return rec;
+  });
+}
+
+
+// ═══════════════════════════════════════════════════════
+// HISTÓRICO PERSISTENTE (localStorage)
+// Chave: "gis-hist-v1"
+// Estrutura: { "GIS 22-02": { "COD": "Problema", ... }, ... }
+// ═══════════════════════════════════════════════════════
+const HIST_KEY = 'gis-hist-v1';
+
+function histLoad(){
+  try { return JSON.parse(localStorage.getItem(HIST_KEY)||'{}'); }
+  catch(e){ return {}; }
+}
+function histSave(data){
+  try { localStorage.setItem(HIST_KEY, JSON.stringify(data)); } catch(e){}
+}
+// Persiste todos os dias do cache atual no histórico
+// Formato: { cod: {p: problema, r: rawProblema} }
+// Compat: aceita string legada ao ler (veja histGetPrevMap)
+function histMergeFromCache(){
+  if(!DS.gisCache) return;
+  const h = histLoad();
+  let changed = false;
+  Object.entries(DS.gisCache).forEach(([sheetName, map]) => {
+    if(h[sheetName]) return; // já salvo — não re-serializa
+    h[sheetName] = {};
+    changed = true;
+    Object.entries(map).forEach(([cod, data]) => {
+      h[sheetName][cod] = { p: data.problema, r: data.rawProblema || data.problema };
+    });
+  });
+  if(changed) histSave(h);
+}
+// Retorna o mapa {cod -> {problema, rawProblema}} do dia anterior ao sheetName
+// Considera tanto os dias no arquivo quanto os salvos no localStorage
+function histGetPrevMap(sheetName, gisSheets){
+  // 1. Primeiro tenta o cache do arquivo atual (dados completos)
+  const idx = gisSheets ? gisSheets.indexOf(sheetName) : -1;
+  if(idx > 0){
+    const prevName = gisSheets[idx-1];
+    const cached = DS.gisCache && DS.gisCache[prevName];
+    if(cached) return { map: cached, name: prevName };
+  }
+  // 2. Fallback: histórico salvo no localStorage
+  const h = histLoad();
+  const sheetVal = sheetSortVal(sheetName);
+  const allSaved = Object.keys(h)
+    .filter(s => /^GIS\s+\d{2}-\d{2}$/i.test(s.trim()))
+    .sort((a,b) => sheetSortVal(a) - sheetSortVal(b));
+  const prevSaved = allSaved.filter(s => sheetSortVal(s) < sheetVal).pop();
+  if(prevSaved){
+    const map = {};
+    Object.entries(h[prevSaved]).forEach(([cod, val]) => {
+      // Suporte a formato legado (string) e novo (objeto {p, r})
+      if(typeof val === 'string') {
+        map[cod] = { problema: val, rawProblema: val };
+      } else {
+        map[cod] = { problema: val.p, rawProblema: val.r || val.p };
+      }
+    });
+    return { map, name: prevSaved };
+  }
+  return { map: {}, name: null };
+}
+function sheetSortVal(s){
+  const m = s.match(/(\d{2})-(\d{2})$/);
+  return m ? Number(m[2])*10000 + Number(m[1]) : 0;
+}
+function histGetStats(){
+  const h = histLoad();
+  const days = Object.keys(h).filter(s=>/^GIS\s+\d{2}-\d{2}$/i.test(s.trim())).length;
+  return { days, raw: h };
+}
+function histClear(){
+  if(confirm('Apagar todo o histórico salvo das lotéricas?')){
+    localStorage.removeItem(HIST_KEY);
+    buildSidebar();
+  }
+}
+
+// ── Utilitários de leitura de datas em células ──
+function cellDateStr(v){
+  if(!v && v!==0) return null;
+  if(v instanceof Date) return v.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
+  if(typeof v==='number' && v>40000)
+    return new Date((v-25569)*86400*1000).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
+  const s = String(v).trim();
+  if(/^\d{1,2}[\/\-]\d{1,2}/.test(s)){
+    const p = s.split(/[\/\-]/);
+    return p[0].padStart(2,'0')+'/'+p[1].padStart(2,'0');
+  }
+  return null;
+}
+function cellFullDateStr(v){
+  if(!v && v!==0) return null;
+  if(v instanceof Date) return v.toLocaleDateString('pt-BR');
+  if(typeof v==='number' && v>40000) return new Date((v-25569)*86400*1000).toLocaleDateString('pt-BR');
+  return String(v).trim();
+}
+// Normaliza nome de aba: remove acentos e lowercases
+function normAba(s){ return s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim(); }
+// Acha nome de aba com uma função de teste sobre o nome normalizado
+function findAba(wb, fn){
+  return wb.SheetNames.find(s => fn(normAba(s), s));
+}
+
+// ── Parsers das outras abas ──
+function getSheet(wb, keywords){
+  for(const kw of keywords){
+    const n = wb.SheetNames.find(s=> s.toLowerCase().includes(kw.toLowerCase()));
+    if(n) return XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:true});
+  }
+  return [];
+}
+
+// ── Helpers de data ──
+function sheetNameToDate(shName){
+  const m=shName.match(/(\d{2})-(\d{2})$/);
+  if(!m) return new Date();
+  const day=parseInt(m[1]), month=parseInt(m[2]);
+  // Escolhe o ano mais próximo da data atual — nunca quebra em virada de ano
+  const now=new Date(), y=now.getFullYear();
+  const d1=new Date(y, month-1, day);
+  const d0=new Date(y-1, month-1, day);
+  return Math.abs(d1-now) <= Math.abs(d0-now) ? d1 : d0;
+}
+function xlSerialToDate(v){
+  if(!v) return null;
+  if(v instanceof Date) return v;
+  if(typeof v==='number'&&v>40000) return new Date((v-25569)*86400*1000);
+  if(typeof v==='string'){
+    const p=v.split(/[\/\-]/);
+    if(p.length===3){
+      const d=parseInt(p[0]),m=parseInt(p[1]),y=parseInt(p[2]);
+      if(y>1000) return new Date(y,m-1,d);
+      // ano 2 dígitos: p[2] é o ano, p[0]=dia, p[1]=mês (formato BR DD/MM/AA)
+      return new Date(2000+parseInt(p[2]), m-1, d);
+    }
+  }
+  return null;
+}
+// Normaliza problema: tudo que não é uma das 4 categorias principais → Reparo
+const MAIN_PROBS = ['Migração para Fibra','Fase de Viabilidade','Roteador','Estação Obsoleta'];
+function normProb(p){
+  if(!p) return 'Reparo';
+  return MAIN_PROBS.includes(p) ? p : 'Reparo';
+}
+
+function parseEvolucao(wb){
+  if(!DS.gisSheetNames||!DS.gisSheetNames.length) return {chart:[],series:[]};
+  const PROB_ORDER=['Circuitos Alarmados','Migração para Fibra','Fase de Viabilidade','Roteador','Estação Obsoleta','Reparo','Prazo Vencido'];
+  const seriesSet=new Set();
+  const chart=DS.gisSheetNames.map(shName=>{
+    const cache=DS.gisCache[shName]||{};
+    const counts={}; let total=0; let prazoVencidos=0;
+    Object.values(cache).forEach(c=>{
+      const p=c.problema;
+      counts[p]=(counts[p]||0)+1;
+      seriesSet.add(p);
+      total++;
+      if(c.prazoVencido) prazoVencidos++;
+    });
+    counts['Circuitos Alarmados']=total; seriesSet.add('Circuitos Alarmados');
+    counts['Prazo Vencido']=prazoVencidos; seriesSet.add('Prazo Vencido');
+    return {date:shName.replace('GIS ',''),...counts};
+  });
+  const allProbs=[...seriesSet];
+  const series=PROB_ORDER.filter(p=>allProbs.includes(p)).concat(allProbs.filter(p=>!PROB_ORDER.includes(p)));
+  return {chart, series};
+}
+
+function parseNaoMig(wb){
+  if(!DS.gisSheetNames||!DS.gisSheetNames.length) return [];
+  return DS.gisSheetNames.map(shName=>{
+    const cache=DS.gisCache[shName]||{};
+    let f1=0,f2=0,f3=0,f4=0;
+    Object.values(cache).forEach(c=>{
+      // ── Somente circuitos em Reparo são contabilizados ──
+      if(c.problema !== 'Reparo') return;
+      const dur=c.duracao||0;
+      if(dur>100&&dur<=300) f1++;
+      else if(dur>300&&dur<=500) f2++;
+      else if(dur>500&&dur<=1000) f3++;
+      else if(dur>1000) f4++;
+    });
+    return {data:shName.replace('GIS ',''),f1,f2,f3,f4,total:f1+f2+f3+f4};
+  });
+}
+
+function parseEvolProblema(wb){
+  if(!DS.gisSheetNames||!DS.gisSheetNames.length) return {dates:[],records:[]};
+  const dates=DS.gisSheetNames.map(n=>n.replace('GIS ',''));
+  const lotericas={};
+  DS.gisSheetNames.forEach((shName,di)=>{
+    const cache=DS.gisCache[shName]||{};
+    Object.entries(cache).forEach(([cod,c])=>{
+      if(!lotericas[cod]){
+        lotericas[cod]={
+          cod, loterica:c.loterica, uf:c.uf,
+          problems:    new Array(dates.length).fill(''),
+          resolvedMask:new Array(dates.length).fill(false),
+        };
+      }
+      lotericas[cod].problems[di]     = c.problema;
+      lotericas[cod].resolvedMask[di] = c.invalidoResolvido || false;
+    });
+  });
+  const records=Object.values(lotericas)
+    .filter(l=>l.problems.some(p=>p))
+    .sort((a,b)=>a.loterica.localeCompare(b.loterica,'pt-BR'));
+  return {dates,records};
+}
+
+function parseMigracao(wb){
+  if(!DS.gisSheetNames||!DS.gisSheetNames.length) return [];
+  const sheetMaps=DS.gisSheetNames.map(shName=>{
+    const cache=DS.gisCache[shName]||{};
+    const m={};
+    Object.entries(cache).forEach(([cod,c])=>{ m[cod]=c.problema; });
+    return m;
+  });
+  return DS.gisSheetNames.map((shName,i)=>{
+    const dt=shName.replace('GIS ','');
+    if(i===0) return {date:dt,fullDate:dt,value:0,normalized:[]};
+    const prev=sheetMaps[i-1], curr=sheetMaps[i];
+    const normalized=[];
+    Object.entries(prev).forEach(([cod,prob])=>{
+      if(MAIN_PROBS.includes(prob) && !curr[cod]) normalized.push(cod);
+    });
+    return {date:dt,fullDate:dt,value:normalized.length,normalized};
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// APP SHELL
+// ═══════════════════════════════════════════════════════
+function showApp(fname){
+  $el('upload-screen').style.display='none';
+  $el('app-shell').style.display='block';
+  $el('sb-file').textContent='📂 '+fname;
+  $el('sb-count').textContent=DS.gis.length+' registros';
+  buildSidebar();
+  // Preenche o seletor de dias
+  const sel = $el('day-select');
+  if(sel){
+    sel.innerHTML = DS.gisSheetNames.map(n =>
+      `<option value="${n}">${n.replace('GIS ','')}</option>`
+    ).join('');
+    sel.value = DS.gisSheetNames[DS.selectedDayIdx];
+  }
+  updateDaySelector();
+  switchTab('db');
+}
+function changeFile(){
+  evVisible.clear();
+  evGroup = 'problemas';
+  dbState = {search:'',uf:'Todos',regional:'Todos',problema:'Todos',variacao:'Todos',page:0};
+  dbSort  = {col:null, dir:1};
+  $el('upload-screen').style.display='flex';
+  $el('app-shell').style.display='none';
+}
+function buildSidebar(){
+  const nav = $el('sidebar-nav');
+  nav.innerHTML = TABS.map(t=>`
+    <button class="nav-btn${t.id===currentTab?' active':''}" onclick="switchTab('${t.id}')" id="nav-${t.id}">
+      <span style="font-size:16px">${t.icon}</span>
+      <span>${t.label}</span>
+      <span class="nav-btn-dot"></span>
+    </button>`).join('');
+  // Rodapé dinâmico
+  const footer = $el('sidebar-footer');
+  if(footer){
+    const {days} = histGetStats();
+    const now = new Date();
+    const mesAno = now.toLocaleDateString('pt-BR',{month:'short',year:'numeric'});
+    footer.innerHTML = `
+      <div style="color:var(--muted);font-size:10px">CEF • Lotéricas • ${mesAno}</div>
+      <div style="margin-top:6px;color:var(--accent);font-size:10px">💾 ${days} dia${days!==1?'s':''} no histórico</div>
+      <div style="margin-top:5px;color:var(--muted);font-size:9px;opacity:.6">← → para navegar datas</div>
+      ${days>0?`<button onclick="histClear()" style="margin-top:5px;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:5px;padding:2px 8px;font-size:10px;cursor:pointer">🗑 Limpar histórico</button>`:''}
+    `;
+  }
+}
+function switchTab(id){
+  currentTab=id;
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  const nb=$el('nav-'+id);
+  if(nb) nb.classList.add('active');
+  const t=TABS.find(x=>x.id===id);
+  $el('tb-title').textContent=t.icon+' '+t.label;
+  const subs={
+    db:`${DS.gis.length} circuitos • ${DS.currSheetName} vs ${DS.prevSheetName}`,
+    ev:`${DS.evolucao.series.length} séries — ${DS.gisSheetNames ? DS.gisSheetNames.length : DS.evolucao.chart.length} pontos temporais`,
+    nm:`${DS.naoMig.length} referências — Circuitos sem migração por faixa de horas`,
+    ep:`${DS.evolProblema.records.length} lotéricas — Histórico de classificação diária`,
+    mg:`${DS.migracao.length} dias registrados — Circuitos migrados para fibra`,
+  };
+  $el('tb-sub').textContent=subs[id];
+  const el=$el('content');
+  el.scrollTop=0;
+  const renders={db:renderDB,ev:renderEV,nm:renderNM,ep:renderEP,mg:renderMG};
+  renders[id]();
+}
+
+// ═══════════════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════════════
+function kpiCard(label,value,color,icon,sub=''){
+  return`<div class="kpi-card" style="cursor:default;transition:transform .12s,box-shadow .12s" onmouseenter="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(0,0,0,.3)'" onmouseleave="this.style.transform='';this.style.boxShadow=''">
+    <div class="kpi-icon">${icon}</div>
+    <div class="kpi-label">${label}</div>
+    <div class="kpi-value" style="color:${color}">${value}</div>
+    ${sub?`<div class="kpi-sub">${sub}</div>`:''}
+    <div class="kpi-bar" style="background:linear-gradient(90deg,${color},transparent)"></div>
+  </div>`;
+}
+
+function probBadge(v, invalidoResolvido, ultimoStatusValido, ultimoStatusValidoData, invalidoSemHistorico){
+  const c = PROBLEM[v]||{bg:'#1a1a2e',text:'#888',dot:'#888'};
+  const border = (invalidoResolvido || invalidoSemHistorico) ? `border:1px dashed ${c.dot};` : '';
+  let warn = '', tip = v;
+  if(invalidoSemHistorico){
+    warn = `<span title="Texto do comentário INVÁLIDO e sem histórico anterior — classificado como Reparo por padrão." style="margin-left:5px;background:#ff4d6e22;color:#ff4d6e;border:1px solid #ff4d6e55;border-radius:3px;padding:0 5px;font-size:9px;font-weight:800;white-space:nowrap">⚠ sem histórico</span>`;
+    tip = `Status Inválido — sem registro anterior para resolver. Classificado como Reparo.`;
+  } else if(invalidoResolvido){
+    const dataStr = ultimoStatusValidoData ? ` em ${ultimoStatusValidoData}` : '';
+    warn = `<span title="Comentário atual INVÁLIDO — status recuperado do último registro válido${dataStr}. Considerado normalmente para Ascensão/Reparo." style="margin-left:5px;background:#ffb83028;color:#ffb830;border:1px solid #ffb83055;border-radius:3px;padding:0 5px;font-size:9px;font-weight:800;white-space:nowrap">⚠ ${ultimoStatusValidoData||'últ. válido'}</span>`;
+    tip = `Status Inválido no comentário — último status válido: ${ultimoStatusValido||v}${dataStr}`;
+  }
+  return `<span class="badge" title="${tip}" style="background:${c.bg};color:${c.text};${border}"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${c.dot};margin-right:5px;vertical-align:middle"></span>${v||'—'}${warn}</span>`;
+}
+
+function distinct(arr){ return [...new Set(arr.filter(Boolean))].sort(); }
+
+function pct(a,t){ return t>0?((a/t)*100).toFixed(1)+'%':'0%'; }
+
+// ═══════════════════════════════════════════════════════
+// SVG CHARTS
+// ═══════════════════════════════════════════════════════
+function svgLine(data, seriesNames, colors, w=880, h=300){
+  const PAD={top:20,right:20,bot:45,left:52};
+  const PW=w-PAD.left-PAD.right, PH=h-PAD.top-PAD.bot;
+  const allVals=[];
+  seriesNames.forEach(s=>data.forEach(d=>{if(d[s]!=null)allVals.push(d[s]);}));
+  const minY=0, maxY=Math.max(...allVals)*1.1||100;
+  const xStep=PW/(data.length-1||1);
+  const yScale=v=>PH-(v-minY)/(maxY-minY)*PH;
+  const ticksY=5;
+  let svg=`<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:${h}px">`;
+  // grid
+  for(let i=0;i<=ticksY;i++){
+    const y=PAD.top+PH*(i/ticksY);
+    const val=Math.round(maxY*(1-i/ticksY));
+    svg+=`<line x1="${PAD.left}" y1="${y}" x2="${PAD.left+PW}" y2="${y}" stroke="#1a3055" stroke-dasharray="3,3"/>`;
+    svg+=`<text x="${PAD.left-6}" y="${y+4}" text-anchor="end" fill="#4d6a8a" font-size="11" font-family="JetBrains Mono,monospace">${fmtN(val)}</text>`;
+  }
+  // x labels (every N)
+  const xInterval=Math.max(1,Math.floor(data.length/12));
+  data.forEach((d,i)=>{
+    if(i%xInterval===0){
+      const x=PAD.left+i*xStep;
+      svg+=`<text x="${x}" y="${h-5}" text-anchor="middle" fill="#4d6a8a" font-size="9" font-family="Outfit,sans-serif" transform="rotate(-45,${x},${h-5})">${d.date}</text>`;
+    }
+  });
+  // series
+  seriesNames.forEach((s,si)=>{
+    const c=colors[si%colors.length];
+    // area
+    const pts=data.map((d,i)=>d[s]!=null?[PAD.left+i*xStep, PAD.top+yScale(d[s])]:null).filter(Boolean);
+    if(pts.length<2) return;
+    let area=`M${pts[0][0]},${PAD.top+PH}`;
+    pts.forEach(([x,y])=>area+=` L${x},${y}`);
+    area+=` L${pts[pts.length-1][0]},${PAD.top+PH} Z`;
+    svg+=`<path d="${area}" fill="${c}" fill-opacity="0.12"/>`;
+    // line
+    let path=`M${pts[0][0]},${pts[0][1]}`;
+    for(let i=1;i<pts.length;i++) path+=` L${pts[i][0]},${pts[i][1]}`;
+    svg+=`<path d="${path}" fill="none" stroke="${c}" stroke-width="2"/>`;
+  });
+  svg+=`</svg>`;
+  return svg;
+}
+
+function svgStackedBar(data, keys, colors, w=600, h=280){
+  const PAD={top:15,right:15,bot:55,left:50};
+  const PW=w-PAD.left-PAD.right, PH=h-PAD.top-PAD.bot;
+  const totals=data.map(d=>keys.reduce((s,k)=>s+(d[k]||0),0));
+  const maxVal=Math.max(...totals,1);
+  const bw=Math.max(4,PW/data.length-4);
+  const bxInterval=Math.max(1,Math.floor(data.length/15));
+  let svg=`<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:${h}px">`;
+  // grid
+  for(let i=0;i<=4;i++){
+    const y=PAD.top+PH*(i/4);
+    const val=Math.round(maxVal*(1-i/4));
+    svg+=`<line x1="${PAD.left}" y1="${y}" x2="${PAD.left+PW}" y2="${y}" stroke="#1a3055" stroke-dasharray="3,3"/>`;
+    svg+=`<text x="${PAD.left-6}" y="${y+4}" text-anchor="end" fill="#4d6a8a" font-size="11" font-family="JetBrains Mono,monospace">${val}</text>`;
+  }
+  data.forEach((d,i)=>{
+    const x=PAD.left+i*(PW/data.length)+(PW/data.length-bw)/2;
+    let curY=PAD.top+PH;
+    keys.forEach((k,ki)=>{
+      const v=d[k]||0;
+      if(!v) return;
+      const bh=(v/maxVal)*PH;
+      curY-=bh;
+      const r=ki===keys.length-1?3:0;
+      svg+=`<rect x="${x}" y="${curY}" width="${bw}" height="${bh}" rx="${r}" fill="${colors[ki]}"/>`;
+    });
+    if(i%bxInterval===0){
+      const cx=x+bw/2;
+      svg+=`<text x="${cx}" y="${h-5}" text-anchor="middle" fill="#4d6a8a" font-size="9" transform="rotate(-45,${cx},${h-5})">${d.ref}</text>`;
+    }
+  });
+  svg+=`</svg>`;
+  return svg;
+}
+
+function svgBar(data, key, color, w=860, h=280){
+  const PAD={top:15,right:15,bot:55,left:45};
+  const PW=w-PAD.left-PAD.right, PH=h-PAD.top-PAD.bot;
+  const maxVal=Math.max(...data.map(d=>d[key]||0),1);
+  const bw=Math.max(3,PW/data.length-3);
+  const bxI=Math.max(1,Math.floor(data.length/18));
+  let svg=`<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:${h}px">`;
+  for(let i=0;i<=4;i++){
+    const y=PAD.top+PH*(i/4);
+    const val=Math.round(maxVal*(1-i/4));
+    svg+=`<line x1="${PAD.left}" y1="${y}" x2="${PAD.left+PW}" y2="${y}" stroke="#1a3055" stroke-dasharray="3,3"/>`;
+    svg+=`<text x="${PAD.left-6}" y="${y+4}" text-anchor="end" fill="#4d6a8a" font-size="11" font-family="JetBrains Mono,monospace">${val}</text>`;
+  }
+  const maxV=Math.max(...data.map(d=>d[key]||0));
+  data.forEach((d,i)=>{
+    const v=d[key]||0;
+    const x=PAD.left+i*(PW/data.length)+(PW/data.length-bw)/2;
+    const bh=(v/maxVal)*PH;
+    const barColor=v===maxV?'#00e5a0':v>0?color:'#1a3055';
+    svg+=`<rect x="${x}" y="${PAD.top+PH-bh}" width="${bw}" height="${bh}" rx="3" fill="${barColor}"/>`;
+    if(i%bxI===0){
+      const cx=x+bw/2;
+      svg+=`<text x="${cx}" y="${h-5}" text-anchor="middle" fill="#4d6a8a" font-size="9" transform="rotate(-45,${cx},${h-5})">${d.date}</text>`;
+    }
+  });
+  svg+=`</svg>`;
+  return svg;
+}
+
+// ═══════════════════════════════════════════════════════
+// DATABASE VIEW
+// ═══════════════════════════════════════════════════════
+let dbState={search:'',uf:'Todos',regional:'Todos',problema:'Todos',variacao:'Todos',prazo:'Todos',page:0};
+const DB_PER=20;
+
+// Ordem de progressão das fases (0 = pior, 3 = melhor/última)
+const PHASE_ORDER = {
+  "Estação Obsoleta":         0,
+  "Fase de Viabilidade":      1,
+  "Obstrução Infraestrutura": 1,  // mesmo nível de FV — descoberta de impedimento
+  "Migração para Fibra":      2,
+  "Roteador":                 3,
+  "Reparo":                  -1,
+  "Status Inválido":         -2,
+};
+
+// Única fonte de verdade para a lista de fases — usada em filtros, botões e heatmap
+const PHASE_OPTS = [
+  'Todos',
+  'Reparo',
+  'Migração para Fibra',
+  'Fase de Viabilidade',
+  'Roteador',
+  'Estação Obsoleta',
+  'Obstrução Infraestrutura',
+  'Status Inválido',
+];
+
+// ── Regra de neutralidade ──────────────────────────────────────────────────
+// Neutro apenas quando o status ANTERIOR era inválido RAW (base de comparação inexistente)
+// ou quando o atual é inválido sem resolução. Inválido RESOLVIDO = status válido normal.
+function isInvalidoNeutral(r){
+  if(r.prevRawProblema === 'Status Inválido') return true;
+  if(r.rawProblema === 'Status Inválido' && !r.invalidoResolvido) return true;
+  return false;
+}
+// Versão pura (sem referência a DS) usada no parseGIS para pré-computar
+function _computeVarDir(r){
+  if(!r.statusMudou || r.statusNovo) return null;
+  if(r.prevRawProblema === 'Status Inválido') return null;
+  if(r.rawProblema === 'Status Inválido' && !r.invalidoResolvido) return null;
+  const p = PHASE_ORDER[r.problemaPrev], c = PHASE_ORDER[r.problema];
+  if(p === undefined || c === undefined || p < 0 || c < 0) return null;
+  if(c > p) return 'avancou';
+  if(c < p) return 'retrocedeu';
+  return 'lateral';
+}
+// Variação ordenada — usa campo pré-computado se disponível
+function getVariacaoDir(r){
+  return r._varDir !== undefined ? r._varDir : _computeVarDir(r);
+}
+
+function variacaoBadge(r) {
+  if (r.statusNovo) {
+    return `<span title="Circuito novo — não estava em ${DS.prevSheetName}" class="var-badge var-novo">✦ NOVO</span>`;
+  }
+
+  // Ícone discreto na variação — o badge do Problema já exibe o alerta completo com data
+  const invBadge = r.invalidoSemHistorico
+    ? `<span title="Status Inválido sem histórico — classificado como Reparo" style="margin-left:3px;color:#ff4d6e;font-size:9px;font-weight:800;opacity:.8">⚠</span>`
+    : r.invalidoResolvido
+      ? `<span title="Status Inválido hoje — usando último válido: ${r.ultimoStatusValido||r.problema}${r.ultimoStatusValidoData?' em '+r.ultimoStatusValidoData:''}" style="margin-left:3px;color:#ffb830;font-size:9px;font-weight:800;opacity:.8">⚠</span>`
+      : '';
+
+  if (r.statusMudou) {
+    const pCfg = PROBLEM[r.problemaPrev] || {text:'#888', abbr: r.problemaPrev||'??'};
+    const cCfg = PROBLEM[r.problema]     || {text:'#888', abbr: r.problema||'??'};
+    const abbrPrev = pCfg.abbr || r.problemaPrev;
+    const abbrCurr = cCfg.abbr || r.problema;
+    const title = `${r.problemaPrev} → ${r.problema}`;
+    const dir = getVariacaoDir(r);
+
+    // Transição neutra por inválido (sem ↑↓)
+    if (isInvalidoNeutral(r)) {
+      const rawPrev = r.prevRawProblema === 'Status Inválido';
+      const why = rawPrev
+        ? `Anterior era inválido — sem direção: ${r.problemaPrev||'??'} → ${r.problema}`
+        : `Status tornou-se inválido — sem direção: ${r.problemaPrev} → ${r.problema}`;
+      return `<span title="${why}" class="var-badge var-neutro">?? <span style="color:${pCfg.text}">${abbrPrev}</span><span style="opacity:.4">›</span><span style="color:${cCfg.text}">${abbrCurr}</span></span>${invBadge}`;
+    }
+
+    if (dir === 'avancou') {
+      return `<span title="Avançou: ${title}" class="var-badge var-avancou">↑ <span style="color:${pCfg.text}">${abbrPrev}</span><span style="opacity:.5">›</span><span style="color:${cCfg.text}">${abbrCurr}</span></span>${invBadge}`;
+    }
+    if (dir === 'retrocedeu') {
+      return `<span title="Retrocedeu: ${title}" class="var-badge var-retrocedeu">↓ <span style="color:${pCfg.text}">${abbrPrev}</span><span style="opacity:.5">›</span><span style="color:${cCfg.text}">${abbrCurr}</span></span>${invBadge}`;
+    }
+    // Lateral (Reparo, OI, mesmo nível)
+    return `<span title="Mudou: ${title}" class="var-badge var-lateral">↕ <span style="color:${pCfg.text}">${abbrPrev}</span><span style="opacity:.5">›</span><span style="color:${cCfg.text}">${abbrCurr}</span></span>${invBadge}`;
+  }
+
+  // Mesmo status
+  const cfg = PROBLEM[r.problema] || {text:'var(--muted)', abbr: '—'};
+  return `<span title="Mesmo status: ${r.problema}" style="color:var(--muted);font-size:10px;font-weight:600">= ${cfg.abbr}</span>${invBadge}`;
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// MAPA DE CALOR — D3 + GeoJSON puro (sem TopoJSON)
+// SVG criado uma vez em _buildMapSVG; _updateMapColors só muda fill/opacity
+// ══════════════════════════════════════════════════════════════════════════
+let dbHeatPhase = 'Todos';
+
+// Fallback GeoJSON embutido (27 UFs simplificadas) — usado offline
+const BRAZIL_GEO_FALLBACK = {"type":"FeatureCollection","features":[{"type":"Feature","properties":{"uf":"RR","_uf":"RR"},"geometry":{"type":"Polygon","coordinates":[[[-60.22,5.27],[-60.93,0.61],[-62.52,0.8],[-63.36,0.75],[-64.23,0.6],[-64.88,0.0],[-65.68,3.73],[-65.36,4.0],[-64.81,4.24],[-64.2,4.14],[-63.84,3.95],[-63.32,3.77],[-62.67,3.55],[-61.61,4.0],[-60.73,5.01],[-60.22,5.27]]]}},{"type":"Feature","properties":{"uf":"AP","_uf":"AP"},"geometry":{"type":"Polygon","coordinates":[[[-51.27,4.08],[-52.3,4.08],[-52.89,1.82],[-53.5,0.97],[-53.28,0.3],[-52.4,0.0],[-51.62,-0.02],[-51.2,0.62],[-51.1,1.52],[-51.27,4.08]]]}},{"type":"Feature","properties":{"uf":"AM","_uf":"AM"},"geometry":{"type":"Polygon","coordinates":[[[-73.98,2.2],[-70.52,2.07],[-69.94,1.74],[-69.85,1.1],[-68.5,1.75],[-68.25,1.0],[-67.7,0.8],[-64.88,0.0],[-65.12,-0.1],[-65.08,-0.73],[-64.76,-1.05],[-64.39,-1.37],[-64.0,-1.95],[-63.55,-2.4],[-63.13,-2.6],[-62.55,-2.81],[-62.15,-3.11],[-61.75,-3.5],[-61.36,-3.82],[-60.9,-4.12],[-60.42,-4.17],[-60.02,-3.95],[-59.6,-3.66],[-59.13,-3.43],[-58.6,-3.33],[-58.18,-3.5],[-57.78,-3.35],[-57.45,-3.52],[-57.15,-3.98],[-57.06,-4.35],[-56.95,-4.93],[-57.2,-5.33],[-57.47,-5.78],[-57.75,-6.32],[-58.14,-6.85],[-58.45,-7.13],[-58.49,-7.69],[-58.22,-7.91],[-57.87,-8.24],[-57.55,-8.56],[-57.2,-9.0],[-57.48,-9.57],[-57.51,-10.2],[-57.45,-10.63],[-57.87,-11.06],[-58.04,-11.57],[-58.55,-12.12],[-59.05,-12.58],[-59.55,-13.0],[-60.0,-13.5],[-60.45,-13.77],[-60.89,-14.03],[-61.06,-13.53],[-61.25,-13.1],[-61.55,-12.65],[-62.03,-12.45],[-62.53,-12.15],[-63.07,-11.8],[-63.59,-11.4],[-64.02,-11.08],[-64.47,-10.77],[-65.2,-9.86],[-65.45,-10.0],[-68.85,-10.95],[-70.3,-6.9],[-73.98,-7.35],[-73.98,2.2]]]}},{"type":"Feature","properties":{"uf":"AC","_uf":"AC"},"geometry":{"type":"Polygon","coordinates":[[[-73.98,-7.35],[-70.3,-6.9],[-68.4,-7.6],[-66.0,-8.5],[-65.45,-10.0],[-68.85,-10.95],[-69.3,-9.7],[-70.1,-9.0],[-70.6,-7.0],[-71.4,-6.9],[-72.9,-7.0],[-73.5,-7.1],[-73.98,-7.35]]]}},{"type":"Feature","properties":{"uf":"RO","_uf":"RO"},"geometry":{"type":"Polygon","coordinates":[[[-65.45,-10.0],[-64.2,-9.15],[-63.2,-9.0],[-60.9,-8.3],[-60.35,-8.2],[-60.5,-10.5],[-61.0,-12.8],[-62.0,-12.5],[-63.2,-13.5],[-65.3,-13.5],[-67.5,-12.0],[-68.85,-10.95],[-65.45,-10.0]]]}},{"type":"Feature","properties":{"uf":"PA","_uf":"PA"},"geometry":{"type":"Polygon","coordinates":[[[-51.27,4.08],[-52.3,4.08],[-60.1,5.2],[-60.22,5.27],[-59.98,4.46],[-59.86,3.89],[-59.76,3.28],[-59.68,2.7],[-59.82,2.12],[-60.06,1.55],[-60.3,1.08],[-60.55,0.63],[-60.93,0.61],[-61.52,0.69],[-62.52,0.8],[-63.36,0.75],[-64.23,0.6],[-64.88,0.0],[-65.12,0.14],[-65.67,0.5],[-66.25,0.81],[-66.74,1.18],[-67.35,1.3],[-67.7,0.8],[-68.25,1.0],[-68.5,1.75],[-68.85,-10.95],[-65.3,-13.5],[-63.2,-13.5],[-60.0,-13.5],[-59.55,-13.0],[-58.04,-11.57],[-57.87,-11.06],[-57.45,-10.63],[-57.51,-10.2],[-57.48,-9.57],[-57.2,-9.0],[-57.55,-8.56],[-57.87,-8.24],[-58.22,-7.91],[-58.49,-7.69],[-58.45,-7.13],[-57.75,-6.32],[-56.95,-4.93],[-55.5,-4.5],[-54.2,-4.2],[-53.5,-3.5],[-52.5,-2.8],[-51.9,-2.3],[-51.6,-1.5],[-51.5,-0.9],[-51.7,0.5],[-52.3,4.08],[-51.27,4.08]]]}},{"type":"Feature","properties":{"uf":"TO","_uf":"TO"},"geometry":{"type":"Polygon","coordinates":[[[-46.5,-5.6],[-48.0,-5.3],[-51.5,-9.5],[-51.5,-12.4],[-48.5,-13.0],[-47.5,-12.5],[-46.5,-9.5],[-46.1,-7.0],[-46.5,-5.6]]]}},{"type":"Feature","properties":{"uf":"MA","_uf":"MA"},"geometry":{"type":"Polygon","coordinates":[[[-44.8,-2.5],[-48.0,-5.3],[-46.5,-5.6],[-46.1,-7.0],[-46.5,-9.5],[-44.5,-8.5],[-43.0,-8.6],[-41.5,-6.5],[-40.5,-4.4],[-41.0,-3.5],[-42.0,-2.9],[-43.5,-2.3],[-44.8,-2.5]]]}},{"type":"Feature","properties":{"uf":"PI","_uf":"PI"},"geometry":{"type":"Polygon","coordinates":[[[-44.5,-8.5],[-43.0,-8.6],[-41.5,-6.5],[-40.5,-7.5],[-41.2,-8.0],[-44.0,-9.5],[-44.5,-8.5]]]}},{"type":"Feature","properties":{"uf":"CE","_uf":"CE"},"geometry":{"type":"Polygon","coordinates":[[[-41.5,-2.5],[-40.0,-2.8],[-38.5,-3.0],[-37.2,-3.7],[-36.0,-4.5],[-35.0,-5.4],[-34.8,-6.0],[-35.5,-7.0],[-37.0,-6.8],[-38.6,-6.5],[-40.5,-7.5],[-41.5,-6.5],[-41.0,-3.5],[-40.0,-2.8],[-41.5,-2.5]]]}},{"type":"Feature","properties":{"uf":"RN","_uf":"RN"},"geometry":{"type":"Polygon","coordinates":[[[-38.5,-3.0],[-37.2,-3.7],[-36.0,-4.5],[-35.0,-5.4],[-34.8,-6.0],[-35.5,-7.0],[-36.3,-7.2],[-37.0,-6.8],[-38.6,-6.5],[-38.0,-4.0],[-38.5,-3.0]]]}},{"type":"Feature","properties":{"uf":"PB","_uf":"PB"},"geometry":{"type":"Polygon","coordinates":[[[-38.6,-6.5],[-36.3,-7.2],[-35.5,-7.0],[-35.0,-7.5],[-35.2,-8.1],[-36.3,-8.5],[-38.5,-8.0],[-38.6,-6.5]]]}},{"type":"Feature","properties":{"uf":"PE","_uf":"PE"},"geometry":{"type":"Polygon","coordinates":[[[-43.0,-8.6],[-41.2,-8.0],[-40.5,-7.5],[-38.6,-6.5],[-38.5,-8.0],[-36.3,-8.5],[-35.2,-8.1],[-35.0,-8.5],[-35.5,-9.0],[-36.0,-9.5],[-37.5,-9.5],[-38.5,-9.2],[-40.0,-9.0],[-41.0,-9.0],[-43.0,-8.6]]]}},{"type":"Feature","properties":{"uf":"AL","_uf":"AL"},"geometry":{"type":"Polygon","coordinates":[[[-38.5,-9.2],[-37.5,-9.5],[-36.5,-9.5],[-35.0,-9.5],[-35.0,-10.5],[-36.5,-10.8],[-38.0,-10.5],[-38.5,-9.2]]]}},{"type":"Feature","properties":{"uf":"SE","_uf":"SE"},"geometry":{"type":"Polygon","coordinates":[[[-38.0,-10.5],[-36.5,-10.8],[-37.0,-11.5],[-38.2,-11.6],[-38.0,-10.5]]]}},{"type":"Feature","properties":{"uf":"BA","_uf":"BA"},"geometry":{"type":"Polygon","coordinates":[[[-44.5,-9.5],[-44.5,-11.0],[-44.0,-12.5],[-43.5,-13.5],[-43.0,-14.5],[-42.0,-14.0],[-41.5,-14.5],[-40.5,-15.5],[-39.5,-17.5],[-38.5,-18.0],[-38.9,-16.5],[-38.5,-15.5],[-38.3,-15.0],[-38.0,-14.0],[-37.5,-13.0],[-37.0,-11.5],[-36.5,-10.8],[-35.0,-10.5],[-37.5,-9.5],[-38.5,-9.2],[-40.0,-9.0],[-41.0,-9.0],[-44.5,-9.5]]]}},{"type":"Feature","properties":{"uf":"MT","_uf":"MT"},"geometry":{"type":"Polygon","coordinates":[[[-65.3,-13.5],[-65.45,-10.0],[-60.35,-8.2],[-59.0,-7.0],[-57.5,-9.1],[-54.2,-8.5],[-52.3,-5.5],[-50.5,-7.6],[-51.5,-9.5],[-51.5,-12.4],[-52.5,-13.5],[-52.5,-18.0],[-58.5,-17.0],[-58.5,-21.0],[-57.5,-24.0],[-55.5,-24.5],[-53.0,-24.0],[-53.0,-20.5],[-60.0,-13.5],[-65.3,-13.5]]]}},{"type":"Feature","properties":{"uf":"GO","_uf":"GO"},"geometry":{"type":"Polygon","coordinates":[[[-51.5,-12.4],[-48.5,-13.0],[-46.0,-13.5],[-47.0,-13.5],[-48.0,-15.5],[-49.5,-16.0],[-50.5,-16.5],[-51.5,-18.5],[-52.5,-18.0],[-52.5,-13.5],[-51.5,-12.4]]]}},{"type":"Feature","properties":{"uf":"DF","_uf":"DF"},"geometry":{"type":"Polygon","coordinates":[[[-47.3,-15.4],[-48.3,-15.4],[-48.3,-16.5],[-47.3,-16.5],[-47.3,-15.4]]]}},{"type":"Feature","properties":{"uf":"MS","_uf":"MS"},"geometry":{"type":"Polygon","coordinates":[[[-58.5,-17.0],[-52.5,-18.0],[-53.0,-20.5],[-53.0,-24.0],[-55.5,-24.5],[-57.5,-24.0],[-58.5,-21.0],[-58.5,-17.0]]]}},{"type":"Feature","properties":{"uf":"MG","_uf":"MG"},"geometry":{"type":"Polygon","coordinates":[[[-44.0,-12.5],[-43.5,-13.5],[-43.0,-14.5],[-42.0,-14.0],[-41.5,-14.5],[-41.0,-15.0],[-40.5,-15.5],[-38.9,-16.5],[-38.5,-18.0],[-38.9,-18.5],[-39.5,-19.0],[-40.0,-19.5],[-40.5,-20.0],[-41.0,-20.5],[-41.5,-21.0],[-42.5,-22.0],[-44.0,-23.0],[-45.5,-23.0],[-46.5,-23.5],[-47.5,-22.8],[-48.5,-22.5],[-50.0,-22.0],[-51.0,-21.5],[-51.5,-19.5],[-51.5,-18.5],[-51.0,-17.5],[-50.5,-16.5],[-49.5,-16.0],[-48.0,-15.5],[-47.0,-13.5],[-46.0,-13.5],[-44.0,-12.5]]]}},{"type":"Feature","properties":{"uf":"ES","_uf":"ES"},"geometry":{"type":"Polygon","coordinates":[[[-40.5,-15.5],[-41.0,-15.0],[-41.5,-14.5],[-43.0,-14.5],[-41.5,-21.0],[-40.5,-20.0],[-40.0,-19.5],[-39.5,-19.0],[-38.9,-18.5],[-38.5,-18.0],[-38.9,-16.5],[-40.5,-15.5]]]}},{"type":"Feature","properties":{"uf":"RJ","_uf":"RJ"},"geometry":{"type":"Polygon","coordinates":[[[-44.5,-23.5],[-44.0,-23.0],[-43.5,-23.2],[-43.0,-23.0],[-42.0,-23.0],[-41.5,-22.5],[-41.0,-22.5],[-41.5,-21.0],[-42.5,-22.0],[-44.0,-23.0],[-44.5,-23.5]]]}},{"type":"Feature","properties":{"uf":"SP","_uf":"SP"},"geometry":{"type":"Polygon","coordinates":[[[-53.0,-20.5],[-53.0,-23.0],[-53.0,-24.0],[-52.0,-25.0],[-50.0,-25.5],[-48.5,-25.0],[-47.5,-24.3],[-46.5,-24.0],[-45.0,-24.0],[-45.0,-23.5],[-45.5,-23.0],[-46.5,-23.5],[-47.5,-22.8],[-48.5,-22.5],[-50.0,-22.0],[-51.0,-21.5],[-52.5,-20.0],[-53.0,-20.5]]]}},{"type":"Feature","properties":{"uf":"PR","_uf":"PR"},"geometry":{"type":"Polygon","coordinates":[[[-54.5,-25.5],[-53.5,-26.5],[-52.5,-26.5],[-51.0,-27.0],[-49.5,-27.0],[-48.5,-26.5],[-48.5,-25.5],[-48.5,-25.0],[-50.0,-25.5],[-52.0,-25.0],[-53.0,-24.0],[-54.0,-24.5],[-54.5,-25.5]]]}},{"type":"Feature","properties":{"uf":"SC","_uf":"SC"},"geometry":{"type":"Polygon","coordinates":[[[-57.5,-27.0],[-54.0,-28.5],[-53.0,-29.0],[-52.0,-29.0],[-50.5,-29.0],[-49.5,-29.5],[-48.5,-29.5],[-48.5,-26.5],[-49.5,-27.0],[-51.0,-27.0],[-52.5,-26.5],[-53.5,-26.5],[-54.5,-25.5],[-57.5,-27.0]]]}},{"type":"Feature","properties":{"uf":"RS","_uf":"RS"},"geometry":{"type":"Polygon","coordinates":[[[-57.5,-27.0],[-57.5,-30.5],[-57.0,-30.5],[-56.0,-31.5],[-54.5,-33.5],[-53.5,-33.75],[-52.5,-33.0],[-52.0,-32.5],[-51.5,-32.0],[-51.0,-31.5],[-50.5,-31.0],[-50.0,-30.5],[-49.5,-29.5],[-50.5,-29.0],[-52.0,-29.0],[-53.0,-29.0],[-54.0,-28.5],[-57.5,-27.0]]]}}]};
+
+// ── Estado do motor D3 (Opção 1 — sem TopoJSON) ────────────────────────────
+let _d3GeoLoaded = false;
+let _d3GeoData   = null;   // GeoJSON ativo
+let _d3Svg       = null;   // seleção D3 do SVG (criada uma vez)
+let _d3Proj      = null;   // projeção (criada uma vez por GeoJSON)
+let _d3Path      = null;   // geoPath (criada uma vez por GeoJSON)
+
+// Extrai sigla UF de qualquer schema GeoJSON
+function ufSigla(props){
+  if(!props) return '';
+  const raw = props._uf || props.SIGLA_UF || props.sigla || props.SIGLA ||
+              props.UF_05 || props.abbrev_state || props.uf || props.UF || props.name || '';
+  return String(raw).toUpperCase().trim().slice(0,2);
+}
+
+// ── Utilitários de cor ─────────────────────────────────────────────────────
+function hexToRgb(hex){
+  const h=(hex||'#888888').replace('#','');
+  return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];
+}
+function lerpColor(c1,c2,t){ return c1.map((v,i)=>Math.round(v+(c2[i]-v)*t)); }
+function _sfill(n, maxCount, baseHex){
+  // n=0 recebe a cor mais escura do gradiente (t=0 = cor base clara)
+  // para que todos os estados apareçam preenchidos
+  const t = n>0 ? Math.pow(n/maxCount, 0.55) : 0;
+  const rgb = lerpColor([195,213,235], hexToRgb(baseHex), t);
+  return 'rgb('+rgb.join(',')+')';
+}
+
+// ── Constrói SVG uma única vez (estrutura de paths + labels) ───────────────
+function _buildMapSVG(geo){
+  const container = $el('d3-map-container');
+  if(!container) return;
+  container.innerHTML = '';
+  // Esconde o loader imediatamente — SVG vai ser desenhado agora
+  const _ldr = $el('d3-map-loader');
+  if(_ldr) _ldr.style.display = 'none';
+
+  const W=520, H=560;
+  _d3Proj = d3.geoMercator();
+  _d3Path = d3.geoPath().projection(_d3Proj);
+  _d3Proj.fitExtent([[4,4],[W-4,H-4]], geo);
+
+  // Pré-injeta _uf em cada feature para lookup rápido
+  geo.features.forEach(f => {
+    if(!f.properties) f.properties = {};
+    if(!f.properties._uf) f.properties._uf = ufSigla(f.properties);
+  });
+
+  // Dá altura explícita ao SVG para o container não colapsar
+  const svg = d3.select(container).append('svg')
+    .attr('viewBox','0 0 '+W+' '+H)
+    .attr('width','100%')
+    .attr('height', H)
+    .style('display','block');
+  _d3Svg = svg;
+
+  // Fundo
+  svg.append('rect').attr('width',W).attr('height',H).attr('fill','#080f1a');
+
+  // Estados — fill/opacity atualizados por _updateMapColors
+  svg.selectAll('path.st')
+    .data(geo.features).enter().append('path')
+    .attr('class','st')
+    .attr('d', _d3Path)
+    .attr('fill','rgb(195,213,235)').attr('opacity',1)
+    .attr('stroke','#080f1a').attr('stroke-width','0.8').attr('stroke-linejoin','round')
+    .style('cursor','default')
+    .on('mousemove', function(event,d){
+      const uf = d.properties._uf;
+      const n  = +this.dataset.n  || 0;
+      const tot= +this.dataset.tot|| 0;
+      if(n) d3.select(this).style('filter','brightness(1.35)');
+      _d3ShowTT(event, uf, n, tot);
+    })
+    .on('mouseleave', function(){
+      d3.select(this).style('filter','');
+      _d3HideTT();
+    })
+    .on('click', function(event,d){
+      if(+this.dataset.n > 0) dbFilter('uf', d.properties._uf);
+    });
+
+  // Labels UF
+  svg.selectAll('text.lbl')
+    .data(geo.features).enter().append('text')
+    .attr('class','lbl')
+    .attr('x', d=>{ const c=_d3Path.centroid(d); return isNaN(c[0])?0:c[0]; })
+    .attr('y', d=>{ const c=_d3Path.centroid(d); return isNaN(c[1])?0:c[1]+1; })
+    .text(d=>d.properties._uf)
+    .attr('text-anchor','middle').attr('dominant-baseline','middle')
+    .attr('font-size', d=>['AL','SE','DF','AP','RJ','ES'].includes(d.properties._uf)?'6.5':'8.5')
+    .attr('font-weight','700').attr('font-family','Inter,Arial,sans-serif')
+    .attr('fill','#1e2d3d').attr('pointer-events','none');
+}
+
+// ── Atualiza fill/opacity/label-color sem recriar o SVG ───────────────────
+function _updateMapColors(ufCount, ufTotal, baseHex, maxCount){
+  if(!_d3Svg) return;
+  _d3Svg.selectAll('path.st').each(function(d){
+    const uf  = d.properties._uf;
+    const n   = ufCount[uf] || 0;
+    const tot = ufTotal[uf] || 0;
+    this.dataset.n   = n;
+    this.dataset.tot = tot;
+    d3.select(this)
+      .attr('fill',    _sfill(n, maxCount, baseHex))
+      .attr('opacity', 1)
+      .style('cursor', n>0?'pointer':'default');
+  });
+  _d3Svg.selectAll('text.lbl').each(function(d){
+    const n = ufCount[d.properties._uf]||0;
+    const t = n ? Math.pow(n/maxCount,0.55) : 0;
+    d3.select(this).attr('fill', t>0.52?'#fff': n?'#1e3a5f':'#1e2d3d');
+  });
+}
+
+// ── Tooltip ────────────────────────────────────────────────────────────────
+let _d3TT = null;
+function _mapEnsureTT(){ if(!_d3TT) _d3TT=$el('d3-map-tt'); return _d3TT; }
+function _d3ShowTT(event, uf, n, tot){
+  const tt=_mapEnsureTT(); if(!tt) return;
+  const pct = tot>0?Math.round(n/tot*100):0;
+  const phase = dbHeatPhase==='Todos'?'circuitos':dbHeatPhase;
+  tt.innerHTML = '<div style="font-weight:700;font-size:13px;margin-bottom:3px">'+uf+'</div>'
+    +(n>0
+      ?'<div style="color:#94a3b8">'+n.toLocaleString('pt-BR')+' '+phase+'</div>'
+        +(dbHeatPhase!=='Todos'?'<div style="color:#64748b;font-size:10px">'+pct+'% do estado</div>':'')
+      :'<div style="color:#475569">Sem dados</div>');
+  tt.style.display='block';
+  _d3PosTT(event);
+}
+function _d3HideTT(){ const tt=_mapEnsureTT(); if(tt) tt.style.display='none'; }
+function _d3PosTT(event){
+  const tt=_mapEnsureTT(); if(!tt) return;
+  const wrap=$el('d3-map-wrap');
+  const rect=wrap?wrap.getBoundingClientRect():{left:0,top:0};
+  tt.style.left=(event.clientX-rect.left+14)+'px';
+  tt.style.top =(event.clientY-rect.top -10)+'px';
+}
+
+// ── Agrega DS.gis por UF e dispara atualização de cores ───────────────────
+function _refreshD3Map(){
+  if(!_d3GeoData) return;
+  if(!$el('d3-map-container')) return;
+
+  const agg={};
+  (DS.gis||[]).forEach(r=>{
+    if(!r.uf) return;
+    const uf=String(r.uf).toUpperCase().trim().slice(0,2);
+    if(!uf) return;
+    if(!agg[uf]) agg[uf]={};
+    const prob=r.problema||'Outros';
+    agg[uf][prob]=(agg[uf][prob]||0)+1;
+  });
+
+  const ufCount={}, ufTotal={};
+  Object.entries(agg).forEach(([uf,bp])=>{
+    ufTotal[uf]=Object.values(bp).reduce((a,b)=>a+b,0);
+    ufCount[uf]=dbHeatPhase==='Todos'?ufTotal[uf]:(bp[dbHeatPhase]||0);
+  });
+
+  const vals=Object.values(ufCount).filter(v=>v>0);
+  const maxCount=Math.max(...vals,1);
+  const baseHex=dbHeatPhase==='Todos'?'#1d4ed8':(PROBLEM[dbHeatPhase]?.dot||'#1d4ed8');
+
+  // Cria SVG se ainda não existe (primeira vez ou após rebuild)
+  if(!_d3Svg || !$el('d3-map-container').querySelector('svg')){
+    _buildMapSVG(_d3GeoData);
+  }
+  _updateMapColors(ufCount, ufTotal, baseHex, maxCount);
+  _updateMapSidebar(ufCount, maxCount, baseHex);
+}
+
+// ── Inicialização: fallback imediato + upgrade IBGE em background ──────────
+async function initD3Map(){
+  // Garante que temos GeoJSON (fallback ou já carregado)
+  if(!_d3GeoData){
+    _d3GeoData = JSON.parse(JSON.stringify(BRAZIL_GEO_FALLBACK));
+  }
+  const loader=$el('d3-map-loader');
+  // Só mostra loader se ainda não temos GeoJSON de rede (primeira carga)
+  if(loader) loader.style.display='none';
+  // Só cria o SVG se o container está vazio — preserva SVG existente
+  const _initContainer = $el('d3-map-container');
+  if(_initContainer && _initContainer.querySelector('svg')){
+    // SVG já existe — só atualiza as cores
+    _refreshD3Map();
+    return;
+  }
+  _d3Svg=null;
+  _refreshD3Map();
+
+  // Tenta IBGE em background para fronteiras mais precisas
+  if(!_d3GeoLoaded){
+    _d3GeoLoaded=true;
+    const URLS=[
+      'https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo+json&qualidade=intermediaria&divisao=estadual',
+      'https://raw.githubusercontent.com/codeforamerica/click_that_hood/master/public/data/brazil-states.geojson'
+    ];
+    for(const url of URLS){
+      try{
+        const r=await fetch(url,{signal:AbortSignal.timeout(6000)});
+        if(r.ok){
+          const geo=await r.json();
+          if(geo&&geo.features&&geo.features.length>20){
+            geo.features.forEach(f=>{
+              if(!f.properties) f.properties={};
+              const raw=f.properties.SIGLA_UF||f.properties.sigla||f.properties.SIGLA||
+                        f.properties.UF_05||f.properties.abbrev_state||f.properties.uf||f.properties.UF||'';
+              f.properties._uf=String(raw).toUpperCase().trim().slice(0,2);
+            });
+            _d3GeoData=geo;
+            _d3Svg=null; // força rebuild com novo GeoJSON
+            if($el('d3-map-container')) _refreshD3Map();
+            break;
+          }
+        }
+      }catch(e){ console.warn('[GIS-Map]',e.message); }
+    }
+  }
+}
+
+// ── Sidebar: ranking top estados + legenda de gradiente ───────────────────
+function _updateMapSidebar(ufCount, maxCount, baseHex){
+  const top=Object.entries(ufCount).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]).slice(0,7);
+  const rankEl=$el('d3-map-rank');
+  if(rankEl){
+    rankEl.innerHTML=top.length===0
+      ?'<p style="color:var(--muted);font-size:11px">Sem dados</p>'
+      :top.map(([uf,v],i)=>{
+          const pct=Math.round(v/maxCount*100);
+          return '<div style="display:grid;grid-template-columns:16px 32px 1fr 40px;align-items:center;gap:6px;margin-bottom:6px">'
+            +'<span style="font-size:9px;color:#475569;text-align:right">'+(i+1)+'</span>'
+            +'<span style="font-size:11px;font-weight:700;color:#e2e8f0">'+uf+'</span>'
+            +'<div style="height:6px;background:#1e293b;border-radius:3px;overflow:hidden">'
+              +'<div style="width:'+pct+'%;height:100%;background:'+_sfill(v,maxCount,baseHex)+';border-radius:3px;transition:width .4s"></div>'
+            +'</div>'
+            +'<span style="font-size:10px;font-weight:600;color:#cbd5e1;text-align:right">'+v.toLocaleString('pt-BR')+'</span>'
+            +'</div>';
+        }).join('');
+  }
+  const legMaxEl=$el('d3-leg-max');
+  const gradBar =$el('d3-grad-bar');
+  const bRgb=hexToRgb(baseHex);
+  if(legMaxEl) legMaxEl.textContent=maxCount.toLocaleString('pt-BR');
+  if(gradBar)  gradBar.style.background='linear-gradient(to bottom,rgb('+bRgb.join(',')+'),rgb(195,213,235))';
+}
+// ── renderDBHeatmap: retorna shell estático — criado UMA vez por _buildDBShell
+// O d3-map-container NUNCA é substituído após criação.
+// Botões e subtítulo são atualizados por _updateHeatControls().
+function renderDBHeatmap(){
+  return `<div style="background:#0f1724;border:1px solid #1e293b;border-radius:14px;padding:16px 20px;margin-bottom:14px">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+      <div>
+        <div style="font-size:13px;font-weight:700;color:#e2e8f0;font-family:Inter,Arial,sans-serif;margin-bottom:3px">
+          Distribuição por Estado
+          <span style="font-size:9px;font-weight:500;color:#334155;margin-left:8px;background:#0a1628;border:1px solid #1a2535;border-radius:4px;padding:2px 7px">D3 · IBGE</span>
+        </div>
+        <div id="db-heat-subtitle" style="font-size:11px;color:#475569;font-family:Inter,Arial,sans-serif">
+          &nbsp;·&nbsp; Clique em um estado para filtrar a tabela
+        </div>
+      </div>
+      <div id="db-heat-controls" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+    </div>
+    <div style="display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap">
+      <div id="d3-map-wrap" style="position:relative;flex-shrink:0;background:#080f1a;border-radius:10px;padding:10px;border:1px solid #1e293b;width:340px;">
+        <div id="d3-map-loader" style="display:none;align-items:center;justify-content:center;height:300px;flex-direction:column;gap:10px">
+          <div style="width:28px;height:28px;border:3px solid #1f2d3d;border-top-color:#00c2ff;border-radius:50%;animation:spin .8s linear infinite"></div>
+          <span style="font-size:11px;color:#334155">Carregando fronteiras IBGE…</span>
+        </div>
+        <div id="d3-map-container"></div>
+        <div id="d3-map-tt" style="position:absolute;background:#1e293b;border:1px solid #334155;border-radius:8px;padding:8px 14px;font-size:12px;color:#e2e8f0;pointer-events:none;display:none;z-index:100;box-shadow:0 8px 24px rgba(0,0,0,.6);font-family:Inter,Arial,sans-serif;min-width:120px;white-space:nowrap"></div>
+      </div>
+      <div style="flex:1;min-width:180px;padding-top:4px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
+          <div id="d3-grad-bar" style="width:11px;height:88px;border-radius:6px;background:linear-gradient(to bottom,#1d4ed8,rgb(186,207,246))"></div>
+          <div style="font-size:10px;color:#475569;font-family:Inter,Arial,sans-serif;display:flex;flex-direction:column;justify-content:space-between;height:88px;padding:1px 0">
+            <span style="color:#94a3b8;font-weight:600" id="d3-leg-max">—</span>
+            <span style="color:#94a3b8;font-weight:600">1</span>
+          </div>
+        </div>
+        <div style="font-size:11px;font-weight:700;color:#94a3b8;letter-spacing:.5px;text-transform:uppercase;font-family:Inter,Arial,sans-serif;margin-bottom:10px">Top estados</div>
+        <div id="d3-map-rank"><p style="color:#334155;font-size:11px">Calculando…</p></div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// Atualiza APENAS os botões e subtítulo — d3-map-container nunca é tocado
+function _updateHeatControls(){
+  const ctrl = $el('db-heat-controls');
+  const sub  = $el('db-heat-subtitle');
+  if(!ctrl) return;
+  ctrl.innerHTML = PHASE_OPTS.map(p=>{
+    const a   = dbHeatPhase===p;
+    const col = p==='Todos'?'#3b82f6':(PROBLEM[p]?.dot||'#888');
+    const lbl = p==='Todos'?'Todos':(PROBLEM[p]?.abbr||p.slice(0,4));
+    const esc = p.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    return '<button onclick="dbHeatSetPhase(\''+esc+'\')" style="'
+      +'background:'+(a?col+'22':'transparent')+';color:'+(a?col:'#475569')+';'
+      +'border:1px solid '+(a?col+'66':'#1e293b')+';border-radius:6px;'
+      +'padding:4px 12px;font-size:11px;font-weight:'+(a?700:500)+';'
+      +'cursor:pointer;white-space:nowrap;transition:all .15s;'
+      +'font-family:Inter,Arial,sans-serif">'+lbl+'</button>';
+  }).join('');
+  if(sub){
+    const tot = dbHeatPhase==='Todos'
+      ? DS.gis.length
+      : DS.gis.filter(r=>r.problema===dbHeatPhase).length;
+    const lbl = dbHeatPhase==='Todos'
+      ? 'Todos os circuitos'
+      : dbHeatPhase+' ('+(PROBLEM[dbHeatPhase]?.abbr||'')+')';
+    sub.innerHTML = lbl+' &nbsp;·&nbsp; <b style="color:#94a3b8">'+tot.toLocaleString('pt-BR')+'</b> circuitos'
+      +'&nbsp;·&nbsp; Clique em um estado para filtrar a tabela';
+  }
+}
+
+
+
+
+
+
+
+// ── Renderiza toda a aba DB (primeira vez ou quando dia/arquivo muda) ────────
+let _dbLastGis = null;
+
+function _buildDBShell(){
+  const ufs    = ['Todos',...distinct(DS.gis.map(r=>r.uf))];
+  const regs   = ['Todos',...distinct(DS.gis.map(r=>r.regional))];
+  const probs  = PHASE_OPTS; // fonte única de verdade — inclui 'Todos'
+  const varOpts= ['Todos','Status alterado','Avançou','Retrocedeu','Mesmo status','Novo circuito'];
+
+  const counts={};
+  DS.gis.forEach(r=>{ counts[r.problema]=(counts[r.problema]||0)+1; });
+  const mudaram   = DS.gis.filter(r=>r.statusMudou).length;
+  const novos     = DS.gis.filter(r=>r.statusNovo).length;
+  const prazoVenc = DS.gis.filter(r=>r.prazoVencido).length;
+  const semPrazo  = DS.gis.filter(r=>r.semPrazo).length;
+  const avancou   = DS.gis.filter(r=>r._varDir==='avancou').length;
+  const retrocedeu= DS.gis.filter(r=>r._varDir==='retrocedeu').length;
+  const PROB_ORDER_KPI=['Reparo','Migracao para Fibra','Fase de Viabilidade','Roteador','Estacao Obsoleta','Obstrucao Infraestrutura','Status Invalido'];
+  const PROB_ORDER_KPI_REAL=['Reparo','Migração para Fibra','Fase de Viabilidade','Roteador','Estação Obsoleta','Obstrução Infraestrutura','Status Inválido'];
+  let kpis = kpiCard('Total Circuitos', DS.gis.length, XL.accent5,'📡', DS.currSheetName);
+  PROB_ORDER_KPI_REAL.forEach(k=>{
+    if(!counts[k]) return;
+    const c=PROBLEM[k]||{dot:'#888',abbr:'•'};
+    kpis+=kpiCard(k,counts[k],c.dot,c.abbr,pct(counts[k],DS.gis.length));
+  });
+  Object.entries(counts).forEach(([k,v])=>{
+    if(PROB_ORDER_KPI_REAL.includes(k)) return;
+    kpis+=kpiCard(k,v,'#888','•',pct(v,DS.gis.length));
+  });
+  if(prazoVenc>0) kpis+=kpiCard('Prazo Vencido',prazoVenc,XL.prazo,'⚠️',`previsão < ${DS.currSheetName.replace('GIS ','')}`);
+  if(semPrazo>0)  kpis+=kpiCard('Sem Prazo',semPrazo,XL.muted,'—','sem data de previsão');
+  kpis+=kpiCard('Mudaram de Status',mudaram,XL.prazo,'↕',`vs ${DS.prevSheetName}`);
+  kpis+=kpiCard('Avançaram de Fase',avancou,PROBLEM['Estação Obsoleta'].dot,'↑','vs '+DS.prevSheetName);
+  kpis+=kpiCard('Retrocederam',retrocedeu,PROBLEM['Reparo'].dot,'↓','vs '+DS.prevSheetName);
+  kpis+=kpiCard('Novos Circuitos',novos,XL.accent5,'✦',`vs ${DS.prevSheetName}`);
+
+  function sortTh(col,label){
+    const cls=dbSort.col===col?(dbSort.dir===1?' sort-asc':' sort-desc'):'';
+    return `<th class="sortable${cls}" onclick="dbSortBy('${col}')">${label}</th>`;
+  }
+
+  $el('content').innerHTML=`
+    <div id="db-kpis" class="kpi-row">${kpis}</div>
+    <div id="db-heatmap">${renderDBHeatmap()}</div>
+    <div style="background:#0c1a2e;border:1px solid #1a3055;border-radius:8px;padding:8px 14px;margin-bottom:12px;font-size:11px;color:var(--muted);display:flex;gap:16px;flex-wrap:wrap;align-items:center">
+      <span>📊 Comparando <b style="color:var(--text)">${DS.currSheetName}</b> (atual) vs <b style="color:var(--text)">${DS.prevSheetName}</b> (anterior)</span>
+      <span style="display:flex;gap:10px;flex-wrap:wrap">
+        <span style="color:#00e5a0">↑ AVANÇOU</span> = EO→FV→MF→RT &nbsp;|&nbsp;
+        <span style="color:#ff4d6e">↓ RETROCEDEU</span> = regrediu &nbsp;|&nbsp;
+        <span style="color:#ffb830">↕ LATERAL</span> = fora da ordem &nbsp;|&nbsp;
+        <span style="color:#06b6d4">✦ NOVO</span> = não estava antes &nbsp;|&nbsp;
+        <span style="color:#ffb830">⚠ DD/MM</span> = comentário inválido hoje, status recuperado do último dia válido
+      </span>
+      <span style="margin-left:auto;color:var(--muted);font-size:10px">Duração: <span class="dur-warning">▲ &gt;200h</span> &nbsp;<span class="dur-critical">▲ &gt;500h</span></span>
+    </div>
+    <div class="filter-bar">
+      <input id="db-search-inp" class="filter-input" placeholder="🔍 Buscar lotérica, cidade, cód., empresa, chamado ou comentário..." value="${dbState.search}" oninput="dbFilter('search',this.value)"/>
+      <select class="filter-select" onchange="dbFilter('uf',this.value)">${ufs.map(v=>`<option${v===dbState.uf?' selected':''}>${v}</option>`).join('')}</select>
+      <select class="filter-select" onchange="dbFilter('regional',this.value)">${regs.map(v=>`<option${v===dbState.regional?' selected':''}>${v}</option>`).join('')}</select>
+      <select class="filter-select" onchange="dbFilter('problema',this.value)">${probs.map(v=>`<option${v===dbState.problema?' selected':''}>${v}</option>`).join('')}</select>
+      <select class="filter-select" onchange="dbFilter('variacao',this.value)">${varOpts.map(v=>`<option${v===dbState.variacao?' selected':''}>${v}</option>`).join('')}</select>
+      <select class="filter-select" onchange="dbFilter('prazo',this.value)">${['Todos','Vencido','Sem prazo','Com prazo'].map(v=>`<option${v===dbState.prazo?' selected':''}>${v}</option>`).join('')}</select>
+      <span id="db-filter-btns"></span>
+      <span id="db-filter-count" class="filter-count"></span>
+    </div>
+    <div class="table-wrap">
+      <div class="table-scroll">
+        <table>
+          <thead><tr>
+            <th class="sticky-col">Cód.</th><th>Lotérica</th>${sortTh('cidade','Cidade')}<th>UF</th>
+            <th>Regional</th><th>Empresa</th>${sortTh('problema','Problema')}
+            <th style="text-align:center">Variação</th>
+            <th>Último Comentário</th>
+            ${sortTh('previsao','Previsão')}${sortTh('duracao','Duração (h)')}<th>Chamado</th>
+          </tr></thead>
+          <tbody id="db-tbody"></tbody>
+        </table>
+      </div>
+      <div id="db-pagination" class="pagination"></div>
+    </div>`;
+
+  _d3TT=null;
+  // Não reseta _d3Svg — o SVG do mapa persiste entre trocas de dia
+  // initD3Map só é chamado na primeira vez (via renderDB abaixo)
+}
+
+function _updateDBTable(){
+  const tbody=$el('db-tbody');
+  const pgDiv=$el('db-pagination');
+  const cntEl=$el('db-filter-count');
+  const btnsEl=$el('db-filter-btns');
+  if(!tbody) return;
+
+  const filtered = filterGIS();
+  const total    = filtered.length;
+  const {rows, totalPages, page} = paginate(filtered, DB_PER, dbState.page);
+  const hasFilter = dbHasFilter();
+  const shDateLabel=DS.currSheetName.replace('GIS ','');
+
+  tbody.innerHTML=rows.length===0
+    ?`<tr><td colspan="12"><div class="empty-state"><div class="empty-state-icon">🔍</div><div class="empty-state-msg">Nenhum circuito encontrado</div><div class="empty-state-sub">Tente ajustar os filtros acima</div></div></td></tr>`
+    :rows.map((r,i)=>{
+      const rowId='row-'+i;
+      const hasText=(r.statusText||'').length>60;
+      const durCls=r.duracao>500?'dur-critical':r.duracao>200?'dur-warning':'';
+      const prevCell=r.semPrazo
+        ?'<span style="color:var(--muted);font-size:10px;font-style:italic;opacity:.7">sem prazo</span>'
+        :r.prazoVencido
+          ?'<span title="\u26a0 Prazo vencido \u2014 previs\u00e3o '+r.previsao+' \u00e9 anterior \u00e0 data da planilha '+shDateLabel+'" style="background:#ff4d6e22;color:#ff4d6e;border:1px solid #ff4d6e55;border-radius:5px;padding:2px 7px;font-size:11px;font-weight:700;white-space:nowrap">\u26a0 '+r.previsao+'</span>'
+          :'<span style="color:var(--green);font-size:11px;font-family:\'JetBrains Mono\',monospace">'+r.previsao+'</span>';
+      const onclk = hasText ? 'dbToggleRow(\''+rowId+'\')' : '';
+      const titleAttr = (hasText?'Clique para ver comentário completo':'')+(r.invalidoResolvido?' — \u26a0 Status Inválido hoje: exibindo último status válido ('+r.ultimoStatusValido+')':'');
+      const stNorm = (r.statusText||'').replace(/\n/g,' ');
+      const stSafe = (r.statusText||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      const expandRow = hasText ? '<tr id="'+rowId+'"><td colspan="12"><div class="row-expand">'+stSafe+'</div></td></tr>' : '';
+      return '<tr class="'+(i%2?'alt':'')+(r.invalidoResolvido?' row-inv-resolvido':'')+'" style="cursor:'+(hasText?'pointer':'default')+'" onclick="'+onclk+'" title="'+titleAttr+'">'+
+        '<td class="mono sticky-col" style="font-size:11px;color:var(--muted)">'+r.cod+'</td>'+
+        '<td style="font-weight:500">'+r.loterica+'</td>'+
+        '<td>'+r.cidade+'</td>'+
+        '<td style="color:var(--muted)">'+r.uf+'</td>'+
+        '<td style="color:var(--muted);white-space:nowrap">'+r.regional+'</td>'+
+        '<td>'+r.empresa+'</td>'+
+        '<td>'+probBadge(r.problema,r.invalidoResolvido,r.ultimoStatusValido,r.ultimoStatusValidoData,r.invalidoSemHistorico)+'</td>'+
+        '<td style="text-align:center">'+variacaoBadge(r)+'</td>'+
+        '<td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font-size:11px" title="'+stNorm.replace(/"/g,'&quot;')+'">'+stNorm.slice(0,60)+(hasText?'<span style="color:var(--accent);margin-left:4px;font-size:10px">\u25be</span>':'')+'</td>'+
+        '<td class="mono" style="text-align:center;white-space:nowrap">'+prevCell+'</td>'+
+        '<td class="mono '+durCls+'" style="text-align:right">'+(r.duracao>0?fmtN(r.duracao):'—')+'</td>'+
+        '<td class="mono" style="color:var(--accent);font-size:11px">'+r.chamado+'</td>'+
+        '</tr>'+expandRow;
+    }).join('');
+
+  pgDiv.innerHTML = renderPagination(page, totalPages, total, DS.gis.length, 'dbPage');
+
+  if(btnsEl) btnsEl.innerHTML=hasFilter?`<button onclick="dbResetFilters()" style="background:#ff4d6e22;color:#ff4d6e;border:1px solid #ff4d6e55;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;white-space:nowrap">✕ Limpar</button>`:'';
+  if(cntEl){
+    const sortBadge = dbSort.col ? ' &middot; <span style="color:var(--accent);font-size:11px">&#8597; '+dbSort.col+'</span>' : '';
+    const verTodos  = total<DS.gis.length ? '<button onclick="dbResetFilters()" style="margin-left:6px;background:transparent;border:none;color:var(--accent);font-size:11px;cursor:pointer;text-decoration:underline">ver todos</button>' : '';
+    const dot       = hasFilter ? '<span class="filter-active-dot"></span>' : '';
+    cntEl.innerHTML = total+' de '+DS.gis.length+' registros'+dot+sortBadge+verTodos;
+  }
+}
+
+function renderDB(){
+  // Rebuild do shell APENAS quando o dia/arquivo muda (_dbLastGis != DS.gis)
+  // OU na primeira carga (_dbLastGis === null).
+  // Filtros, paginação e ordenação NUNCA disparam rebuild.
+  const needsShell = _dbLastGis !== DS.gis;
+  if(needsShell){
+    _dbLastGis = DS.gis;
+    _buildDBShell();
+    // Após o shell existir no DOM, popula controles, inicia mapa e atualiza tabela
+    requestAnimationFrame(()=>{
+      _updateHeatControls();
+      initD3Map();
+      _updateDBTable();
+    });
+    return;
+  }
+  // Caminho rápido: só atualiza tabela (filtro/página/sort)
+  _updateDBTable();
+}
+
+function dbHeatSetPhase(p){
+  dbHeatPhase=p;
+  // Atualiza só botões e subtítulo — d3-map-container NÃO é tocado
+  _updateHeatControls();
+  // Mapa já existe: só muda as cores
+  _refreshD3Map();
+}
+
+let dbSort={col:null,dir:1}; // col='duracao'|'problema'|..., dir=1 asc/-1 desc
+
+/** Retorna true se qualquer filtro de tabela está ativo. */
+function dbHasFilter(){
+  return !!(dbState.search || dbState.uf !== 'Todos' || dbState.regional !== 'Todos' ||
+            dbState.problema !== 'Todos' || dbState.variacao !== 'Todos' || dbState.prazo !== 'Todos');
+}
+
+function filterGIS(){
+  const q   = dbState.search.toLowerCase();
+  const vUF = dbState.uf       !== 'Todos';
+  const vRG = dbState.regional !== 'Todos';
+  const vPR = dbState.problema !== 'Todos';
+  const vVR = dbState.variacao !== 'Todos';
+  const vPZ = dbState.prazo    !== 'Todos';
+  let rows = DS.gis.filter(r=>{
+    if(vUF && r.uf       !== dbState.uf)       return false;
+    if(vRG && r.regional !== dbState.regional) return false;
+    if(vPR && r.problema !== dbState.problema) return false;
+    if(vVR){
+      const dir = r._varDir; // pré-computado no parseGIS
+      if(dbState.variacao==='Status alterado' && !r.statusMudou && !r.statusNovo) return false;
+      if(dbState.variacao==='Avançou'         && dir !== 'avancou')               return false;
+      if(dbState.variacao==='Retrocedeu'      && dir !== 'retrocedeu')            return false;
+      if(dbState.variacao==='Mesmo status'    && (r.statusMudou||r.statusNovo))   return false;
+      if(dbState.variacao==='Novo circuito'   && !r.statusNovo)                   return false;
+    }
+    if(vPZ){
+      if(dbState.prazo==='Vencido'   && !r.prazoVencido)              return false;
+      if(dbState.prazo==='Sem prazo' && !r.semPrazo)                  return false;
+      if(dbState.prazo==='Com prazo' && (r.semPrazo||r.prazoVencido)) return false;
+    }
+    if(q && !(r._hay||'').includes(q)) return false;  // pré-computado no parseGIS
+    return true;
+  });
+  if(dbSort.col){
+    rows=[...rows].sort((a,b)=>{
+      const av=a[dbSort.col]??'', bv=b[dbSort.col]??'';
+      if(typeof av==='number'&&typeof bv==='number') return (av-bv)*dbSort.dir;
+      return String(av).localeCompare(String(bv),'pt-BR')*dbSort.dir;
+    });
+  }
+  return rows;
+}
+let _dbSearchTimer=null;
+function dbFilter(key,val){
+  dbState[key]=val; dbState.page=0;
+  if(key==='search'){
+    clearTimeout(_dbSearchTimer);
+    _dbSearchTimer=setTimeout(()=>{
+      renderDB();
+      const inp=document.querySelector('.filter-input');
+      if(inp){ inp.focus(); const l=inp.value.length; inp.setSelectionRange(l,l); }
+    },180);
+  } else { renderDB(); }
+}
+function dbPage(p){ dbState.page=p; renderDB(); }
+function dbSortBy(col){
+  if(dbSort.col===col) dbSort.dir*=-1;
+  else { dbSort.col=col; dbSort.dir=1; }
+  dbState.page=0;
+  renderDB();
+}
+function dbDefaultState(){ return {search:'',uf:'Todos',regional:'Todos',problema:'Todos',variacao:'Todos',prazo:'Todos',page:0}; }
+function dbResetFilters(){
+  dbState = dbDefaultState();
+  dbSort  = {col:null,dir:1};
+  renderDB();
+}
+function dbToggleRow(id){
+  const el=$el(id);
+  if(!el) return;
+  const div=el.querySelector('.row-expand');
+  if(div) div.classList.toggle('open');
+}
+
+
+// ═══════════════════════════════════════════════════════
+// EVOLUÇÃO VIEW — espelha a estrutura do Excel:
+//   Bloco 1: Circuitos em Migração para Fibra (accent1, linechart)
+//   Bloco 2: Evolução de Circuitos por Tipo de Problema (multi-série)
+//   Bloco 3: Indicadores de Prazo (accent2/orange)
+// ═══════════════════════════════════════════════════════
+
+// Mapeamento de séries → cor Excel exata (mesma ordem das linhas do Excel)
+const EV_SERIES_MAP = {
+  'Circuitos Alarmados':                { color: XL.accent5,  group: 'alarmados'   },
+  'Migração para Fibra':                { color: XL.accent1,  group: 'problemas'   },
+  'Fase de Viabilidade':                { color: XL.accent2,  group: 'problemas'   },
+  'Roteador':                           { color: XL.accent3,  group: 'problemas'   },
+  'Estação Obsoleta':                   { color: XL.accent4,  group: 'problemas'   },
+  'Reparo':                             { color: XL.reparo,   group: 'problemas'   },
+  'Prazo Vencido':                      { color: XL.prazo,    group: 'prazos'      },
+  'Obstrução Infraestrutura':           { color: XL.accent6,  group: 'problemas'   },
+  'Último comentário há mais de 15 dias':{ color: XL.accent2, group: 'prazos'      },
+  'Prazo do Dia':                       { color: XL.accent2,  group: 'prazos'      },
+  'Prazos Cumpridos':                   { color: XL.accent4,  group: 'prazos'      },
+  'Precisão Prazos (%)':                { color: XL.accent1,  group: 'prazos'      },
+  'Alarmado 6h ou menos':              { color: XL.accent4,  group: 'operacional'  },
+  'Normalizados do dia anterior':       { color: XL.accent4,  group: 'operacional'  },
+  'Novas ocorrências':                  { color: XL.accent5,  group: 'operacional'  },
+};
+function evSeriesColor(name, idx){
+  return EV_SERIES_MAP[name]?.color || SERIES_C[idx % SERIES_C.length];
+}
+
+let evVisible = new Set();
+let evGroup = 'problemas'; // grupo ativo: 'problemas' | 'prazos'
+
+function renderEV(){
+  const {chart, series} = DS.evolucao;
+  if(!series.length){
+    $el('content').innerHTML = `<div style="padding:24px">
+      <p style="color:var(--rose);margin-bottom:8px;font-weight:600">⚠️ Sem dados de Evolução disponíveis.</p>
+      <p style="color:var(--muted);font-size:12px">Verifique se o arquivo contém abas GIS DD-MM com dados de circuitos.</p>
+    </div>`;
+    return;
+  }
+
+  const last = chart[chart.length-1] || {};
+
+  // Inicializa visibilidade com o grupo padrão
+  if(!evVisible.size){
+    series.filter(s => EV_SERIES_MAP[s]?.group === evGroup).forEach(s => evVisible.add(s));
+    if(!evVisible.size) series.slice(0,6).forEach(s => evVisible.add(s));
+  }
+
+  // ── KPIs das séries principais — cores unificadas via PROBLEM map ──
+  const mainSeries = ['Circuitos Alarmados','Migração para Fibra','Fase de Viabilidade','Roteador','Estação Obsoleta'];
+  let kpis = mainSeries.filter(s => series.includes(s)).map(s => {
+    const color = s==='Circuitos Alarmados' ? XL.accent5 : (PROBLEM[s]?.dot || XL.accent1);
+    const icon  = s==='Circuitos Alarmados'?'📡': s==='Migração para Fibra'?'🔵': s==='Fase de Viabilidade'?'🟡': s==='Roteador'?'🟣':'🟢';
+    return kpiCard(s, fmtN(last[s]??0), color, icon, 'último registro');
+  }).join('');
+  if(series.includes('Reparo')){
+    kpis += kpiCard('Reparo', fmtN(last['Reparo']??0), PROBLEM['Reparo'].dot, '🔧', 'último registro');
+  }
+  const prazoVencLast = last['Prazo Vencido'] ?? 0;
+  kpis += kpiCard('Prazo Vencido', fmtN(prazoVencLast), XL.prazo, '⚠️', 'UL com prazo expirado');
+
+  // ── Apenas 2 grupos: Tipos de Problema e Prazos & Previsão ──
+  const groups = [
+    { id:'problemas', label:'Tipos de Problema' },
+    { id:'prazos',    label:'Prazos & Previsão'  },
+  ];
+  const groupBtns = groups.map(g => {
+    const active = evGroup === g.id;
+    return `<button onclick="evSetGroup('${g.id}')" style="
+      padding:5px 14px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;
+      border:1px solid ${active ? XL.accent1 : 'var(--border)'};
+      background:${active ? XL.accent1+'25' : 'var(--surface)'};
+      color:${active ? XL.accent1 : 'var(--muted)'};
+      transition:all .15s">${g.label}</button>`;
+  }).join('');
+
+  // ── Toggle individual de séries do grupo ativo ──
+  const groupSeries = series.filter(s => EV_SERIES_MAP[s]?.group === evGroup || (!EV_SERIES_MAP[s] && evGroup==='problemas'));
+  const toggButtons = groupSeries.map((s, i) => {
+    const on = evVisible.has(s);
+    const c = evSeriesColor(s, i);
+    return `<button class="series-btn" style="
+      background:${on ? c+'28' : 'var(--surface)'};
+      color:${on ? c : 'var(--muted)'};
+      border-color:${on ? c : 'var(--border)'};
+      font-size:11px;padding:3px 10px"
+      onclick="evToggle('${s.replace(/'/g,"\\'")}')">${s}</button>`;
+  }).join('');
+
+  const visArr = [...evVisible];
+  const visColors = visArr.map(s => evSeriesColor(s, series.indexOf(s)));
+  const chartSvg = svgLineXL(chart, visArr, visColors, 860, 300, 'ev-main');
+
+  $el('content').innerHTML = `
+    <div class="kpi-row">${kpis}</div>
+    <div style="background:${XL.accent1};color:#fff;border-radius:8px 8px 0 0;padding:10px 18px;font-weight:700;font-size:13px;letter-spacing:.03em;display:flex;align-items:center;gap:10px;margin-top:4px">
+      <span style="font-size:16px">📈</span> Evolução de Circuitos por Tipo de Problema
+    </div>
+    <div style="background:var(--card);border:1px solid ${XL.accent1}55;border-top:none;border-radius:0 0 8px 8px;padding:16px;margin-bottom:16px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+        <span style="font-size:11px;color:var(--muted);font-weight:600;align-self:center">VISUALIZAR:</span>
+        ${groupBtns}
+      </div>
+      <div class="series-toggles" style="margin-bottom:12px">
+        <span class="series-lbl">SÉRIES:</span>${toggButtons}
+      </div>
+      ${chartSvg}
+    </div>`;
+}
+
+function evToggle(s){
+  evVisible.has(s) ? evVisible.delete(s) : evVisible.add(s);
+  renderEV();
+}
+function evSetGroup(g){
+  if(g !== 'problemas' && g !== 'prazos') return;
+  evGroup = g;
+  evVisible.clear();
+  const {series} = DS.evolucao;
+  series.filter(s => EV_SERIES_MAP[s]?.group === g || (!EV_SERIES_MAP[s] && g==='problemas')).forEach(s => evVisible.add(s));
+  if(!evVisible.size) series.slice(0,4).forEach(s => evVisible.add(s));
+  renderEV();
+}
+
+// ── Tooltip Global para gráficos ──
+(function(){
+  const tip=document.createElement('div');
+  tip.id='chart-tip';
+  tip.style.cssText='position:fixed;z-index:9999;background:#0f2040;border:1px solid #1a3055;border-radius:10px;padding:10px 14px;font-size:12px;pointer-events:none;display:none;box-shadow:0 6px 24px #0009;min-width:160px;max-width:280px;font-family:Outfit,sans-serif';
+  document.body.appendChild(tip);
+})();
+// Serialização de dados para tooltip
+window._tipData={};
+function showTip(evt,id){
+  const tip=$el('chart-tip');
+  const d=window._tipData[id];
+  if(!tip||!d) return;
+  const EV_CM={
+    'Circuitos Alarmados': XL.accent5,
+    'Migração para Fibra':  XL.accent1,
+    'Fase de Viabilidade':  XL.accent2,
+    'Roteador':             XL.accent3,
+    'Estação Obsoleta':     XL.accent4,
+    'Reparo':               XL.reparo,
+    'Prazo Vencido':        XL.prazo,
+    'Obstrução Infraestrutura': XL.accent6,
+  };
+  let rows='';
+  d.series.forEach(([name,val])=>{
+    if(val==null) return;
+    const c=EV_CM[name]||'#cdd9eb';
+    rows+=`<div style="display:flex;align-items:center;gap:7px;margin-top:4px">
+      <span style="width:8px;height:8px;border-radius:50%;background:${c};flex-shrink:0"></span>
+      <span style="color:#8aa8c8;flex:1;font-size:11px">${name}</span>
+      <b style="color:#fff;font-family:'JetBrains Mono',monospace;font-size:12px">${Number(val).toLocaleString('pt-BR')}</b>
+    </div>`;
+  });
+  tip.innerHTML=`<div style="color:#00c2ff;font-weight:700;margin-bottom:2px;font-size:13px">${d.date}</div>${rows}`;
+  tip.style.display='block';
+  moveTip(evt);
+}
+function moveTip(evt){
+  const tip=$el('chart-tip');
+  if(!tip||tip.style.display==='none') return;
+  const x=evt.clientX+16, y=evt.clientY-10;
+  tip.style.left=Math.min(x,window.innerWidth-tip.offsetWidth-8)+'px';
+  tip.style.top=Math.max(4,y)+'px';
+}
+function hideTip(){
+  const tip=$el('chart-tip');
+  if(tip) tip.style.display='none';
+}
+
+// SVG Line Chart estilo Excel (fundo mais neutro, linhas com espessura, pontos circulares)
+function svgLineXL(data, seriesNames, colors, w=860, h=300, tipKey='ev'){
+  const PAD = {top:24, right:24, bot:50, left:56};
+  const PW = w-PAD.left-PAD.right, PH = h-PAD.top-PAD.bot;
+  const allVals = [];
+  seriesNames.forEach(s => data.forEach(d => { if(d[s]!=null) allVals.push(d[s]); }));
+  if(!allVals.length) return `<div style="color:var(--muted);padding:20px;text-align:center">Sem dados para exibir</div>`;
+  const minY = 0, maxY = Math.max(...allVals)*1.12 || 100;
+  const xStep = PW / (data.length-1 || 1);
+  const yScale = v => PH - (v-minY)/(maxY-minY)*PH;
+  const ticksY = 5;
+  const svgId = tipKey+'_'+Math.random().toString(36).slice(2,6);
+  // Pre-registra dados de tooltip
+  window._tipData = window._tipData || {};
+  data.forEach((d,i) => {
+    const key = svgId+'_'+i;
+    window._tipData[key] = {date: d.date, series: seriesNames.map(s=>[s, d[s]??null])};
+  });
+  let svg = `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:${h}px;font-family:'Aptos Narrow',Outfit,sans-serif" onmousemove="moveTip(event)" onmouseleave="hideTip()">`;
+  svg += `<rect x="${PAD.left}" y="${PAD.top}" width="${PW}" height="${PH}" rx="3" fill="${XL.dk2}55"/>`;
+  // Grid lines
+  for(let i=0;i<=ticksY;i++){
+    const y = PAD.top + PH*(i/ticksY);
+    const val = Math.round(maxY*(1-i/ticksY));
+    svg += `<line x1="${PAD.left}" y1="${y}" x2="${PAD.left+PW}" y2="${y}" stroke="${XL.lt2}22" stroke-width="1"/>`;
+    svg += `<text x="${PAD.left-8}" y="${y+4}" text-anchor="end" fill="${XL.lt2}99" font-size="10">${fmtN(val)}</text>`;
+  }
+  // X labels (every N)
+  const xInterval = Math.max(1, Math.floor(data.length/14));
+  data.forEach((d,i) => {
+    if(i % xInterval === 0){
+      const x = PAD.left + i*xStep;
+      svg += `<text x="${x}" y="${h-6}" text-anchor="middle" fill="${XL.lt2}88" font-size="9" transform="rotate(-40,${x},${h-6})">${d.date}</text>`;
+    }
+  });
+  // Series: area + line + dots
+  seriesNames.forEach((s, si) => {
+    const c = colors[si % colors.length];
+    const pts = data.map((d,i) => d[s]!=null ? [PAD.left+i*xStep, PAD.top+yScale(d[s])] : null).filter(Boolean);
+    if(pts.length < 2) return;
+    let area = `M${pts[0][0]},${PAD.top+PH}`;
+    pts.forEach(([x,y]) => area += ` L${x},${y}`);
+    area += ` L${pts[pts.length-1][0]},${PAD.top+PH} Z`;
+    svg += `<path d="${area}" fill="${c}" fill-opacity="0.10"/>`;
+    let path = `M${pts[0][0]},${pts[0][1]}`;
+    for(let i=1;i<pts.length;i++) path += ` L${pts[i][0]},${pts[i][1]}`;
+    svg += `<path d="${path}" fill="none" stroke="${c}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+    const dotInterval = Math.max(1, Math.floor(pts.length/20));
+    pts.forEach(([x,y],pi) => {
+      if(pi % dotInterval === 0 || pi === pts.length-1){
+        svg += `<circle cx="${x}" cy="${y}" r="3" fill="${c}" stroke="${XL.dk2}" stroke-width="1.5"/>`;
+      }
+    });
+    const last = pts[pts.length-1];
+    svg += `<text x="${last[0]+5}" y="${last[1]+4}" fill="${c}" font-size="9" font-weight="700">${s.slice(0,4)}</text>`;
+  });
+  // Hover zones invisíveis — uma por coluna de dados
+  const colW = PW / (data.length || 1);
+  data.forEach((d,i) => {
+    const tipKeyI = svgId+'_'+i;
+    const x = PAD.left + i*xStep - (i===0 ? 0 : colW/2);
+    const zoneW = i===0 ? colW/2 : (i===data.length-1 ? colW/2 : colW);
+    svg += `<rect x="${x}" y="${PAD.top}" width="${zoneW}" height="${PH}" fill="transparent" style="cursor:crosshair" onmouseover="showTip(event,'${tipKeyI}')" onmouseout="hideTip()"/>`;
+    // Linha vertical sutil ao hover (via title fallback)
+  });
+  svg += `</svg>`;
+  return svg;
+}
+
+// ═══════════════════════════════════════════════════════
+// NÃO MIGRAÇÃO VIEW — espelha a estrutura do Excel:
+//   Cabeçalho accent1 · faixas accent1/2/3/5 · total em destaque
+// ═══════════════════════════════════════════════════════
+const NM_LABELS = ['>100h <300h', '>300h <500h', '>500h <1000h', '>1000h'];
+let nmState={page:0};
+const NM_PER=30;
+
+function svgStackedBarXL(data, keys, colors, w=860, h=300, tipKey='nm'){
+  const PAD = {top:20, right:20, bot:55, left:52};
+  const PW = w-PAD.left-PAD.right, PH = h-PAD.top-PAD.bot;
+  const totals = data.map(d => keys.reduce((s,k) => s+(d[k]||0), 0));
+  const maxVal = Math.max(...totals, 1);
+  const bw = Math.max(5, PW/data.length - 3);
+  const bxInterval = Math.max(1, Math.floor(data.length/16));
+  const svgId = tipKey+'_'+Math.random().toString(36).slice(2,6);
+  window._tipData = window._tipData || {};
+  data.forEach((d,i) => {
+    window._tipData[svgId+'_'+i] = {date: d.ref||d.data, series: keys.map(k=>[k, d[k]??0]).concat([['Total', totals[i]]])};
+  });
+
+  let svg = `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:${h}px;font-family:'Aptos Narrow',Outfit,sans-serif" onmousemove="moveTip(event)" onmouseleave="hideTip()">`;
+  svg += `<rect x="${PAD.left}" y="${PAD.top}" width="${PW}" height="${PH}" rx="3" fill="${XL.dk2}55"/>`;
+  for(let i=0;i<=4;i++){
+    const y = PAD.top + PH*(i/4);
+    const val = Math.round(maxVal*(1-i/4));
+    svg += `<line x1="${PAD.left}" y1="${y}" x2="${PAD.left+PW}" y2="${y}" stroke="${XL.lt2}22" stroke-width="1"/>`;
+    svg += `<text x="${PAD.left-6}" y="${y+4}" text-anchor="end" fill="${XL.lt2}88" font-size="10">${val}</text>`;
+  }
+  data.forEach((d,i) => {
+    const x = PAD.left + i*(PW/data.length) + (PW/data.length-bw)/2;
+    let curY = PAD.top + PH;
+    keys.forEach((k,ki) => {
+      const v = d[k]||0;
+      if(!v) return;
+      const bh = (v/maxVal)*PH;
+      curY -= bh;
+      svg += `<rect x="${x}" y="${curY}" width="${bw}" height="${bh}" rx="${ki===keys.length-1?3:0}" fill="${colors[ki]}" fill-opacity="0.9"/>`;
+    });
+    if(i % bxInterval === 0){
+      const cx = x + bw/2;
+      svg += `<text x="${cx}" y="${h-6}" text-anchor="middle" fill="${XL.lt2}88" font-size="9" transform="rotate(-40,${cx},${h-6})">${d.ref||d.data}</text>`;
+    }
+    // Hover zone
+    svg += `<rect x="${x-1}" y="${PAD.top}" width="${bw+2}" height="${PH}" fill="transparent" style="cursor:crosshair" onmouseover="showTip(event,'${svgId+'_'+i}')" onmouseout="hideTip()"/>`;
+  });
+  svg += `</svg>`;
+  return svg;
+}
+
+function renderNM(){
+  const data = DS.naoMig;
+  if(!data.length){
+    $el('content').innerHTML = `<div style="padding:24px">
+      <p style="color:var(--rose);margin-bottom:8px;font-weight:600">⚠️ Sem dados de Não Migração disponíveis.</p>
+      <p style="color:var(--muted);font-size:12px">Verifique se o arquivo contém abas GIS DD-MM com dados de duração.</p>
+    </div>`;
+    return;
+  }
+
+  const last = [...data].reverse().find(d=>d.total!=null) || data[data.length-1] || {};
+  const v = n => n!=null ? fmtN(n) : '—';
+
+  // KPIs com cores Excel
+  const kpis = `
+    ${kpiCard('Reparo em Não Migração', v(last.total), PROBLEM['Reparo'].dot, '🔧', last.data||'')}
+    ${kpiCard(NM_LABELS[0], v(last.f1), NM_C[0], '⏱', 'circuitos')}
+    ${kpiCard(NM_LABELS[1], v(last.f2), NM_C[1], '⏱', 'circuitos')}
+    ${kpiCard(NM_LABELS[2], v(last.f3), NM_C[2], '⏱', 'circuitos')}
+    ${kpiCard(NM_LABELS[3], v(last.f4), NM_C[3], '⚠️','circuitos')}`;
+
+  const chartData = data
+    .filter(d => d.f1!=null || d.f2!=null || d.f3!=null || d.f4!=null)
+    .map(d => ({
+      ref: d.data,
+      [NM_LABELS[0]]: d.f1||0,
+      [NM_LABELS[1]]: d.f2||0,
+      [NM_LABELS[2]]: d.f3||0,
+      [NM_LABELS[3]]: d.f4||0,
+    }));
+
+  const barSvg = chartData.length
+    ? svgStackedBarXL(chartData, NM_LABELS, NM_C)
+    : `<p style="color:var(--muted);padding:20px">Sem dados para exibir no gráfico.</p>`;
+
+  const legend = NM_LABELS.map((l,i) => `
+    <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)">
+      <span style="width:12px;height:12px;background:${NM_C[i]};border-radius:2px;display:inline-block;opacity:.9"></span>${l}
+    </span>`).join('');
+
+  // Tabela paginada
+  const totalPages = Math.ceil(data.length/NM_PER) || 1;
+  const page = Math.min(nmState.page, totalPages-1);
+  const rows = data.slice(page*NM_PER, (page+1)*NM_PER);
+
+  const tableRows = rows.map((r,i) => {
+    const isLast = (r === last);
+    return `<tr class="${i%2?'alt':''}" style="${isLast?`outline:1px solid ${PROBLEM['Reparo'].dot}55;`:''}">
+      <td style="font-weight:600;color:${isLast?PROBLEM['Reparo'].dot:'var(--text)'}">${r.data}</td>
+      ${[r.f1,r.f2,r.f3,r.f4].map((val,j) => `
+        <td class="mono" style="text-align:right;color:${val>0?NM_C[j]:'var(--muted)'};font-weight:600">
+          ${val!=null&&val>0 ? fmtN(val) : '—'}
+        </td>`).join('')}
+      <td class="mono" style="text-align:right;font-weight:800;color:${isLast?PROBLEM['Reparo'].dot:(r.total>0?'var(--text)':'var(--muted)')}">${r.total!=null&&r.total>0 ? fmtN(r.total) : '—'}</td>
+    </tr>`;
+  }).join('');
+
+  $el('content').innerHTML = `
+    <div class="kpi-row">${kpis}</div>
+
+    <!-- Cabeçalho — Reparo -->
+    <div style="background:${PROBLEM['Reparo'].dot};color:#fff;border-radius:8px 8px 0 0;padding:10px 18px;font-weight:700;font-size:13px;display:flex;justify-content:space-between;align-items:center">
+      <span>🔧 Circuitos em Reparo — Sem Migração por Faixa de Horas</span>
+      <span style="font-size:11px;opacity:.85">${chartData.length} referências</span>
+    </div>
+    <div style="background:var(--card);border:1px solid ${PROBLEM['Reparo'].dot}44;border-top:none;border-radius:0 0 8px 8px;padding:16px;margin-bottom:14px">
+      ${barSvg}
+      <div style="display:flex;gap:14px;margin-top:10px;flex-wrap:wrap">${legend}</div>
+    </div>
+
+    <!-- Tabela -->
+    <div class="table-wrap">
+      <div style="display:grid;grid-template-columns:1fr repeat(5,90px);background:${PROBLEM['Reparo'].dot};color:#fff;font-size:11px;font-weight:700;padding:8px 14px;border-radius:6px 6px 0 0;gap:4px">
+        <span>Referência</span>
+        ${NM_LABELS.map(l=>`<span style="text-align:right">${l}</span>`).join('')}
+        <span style="text-align:right">Total</span>
+      </div>
+      <div class="table-scroll" style="border:1px solid ${PROBLEM['Reparo'].dot}33;border-top:none;border-radius:0 0 6px 6px">
+        <table style="font-size:12px">
+          <tbody>${tableRows}</tbody>
+        </table>
+      </div>
+      ${totalPages>1 ? `<div class="pagination">
+        <span class="page-info">Página ${page+1} de ${totalPages}</span>
+        <div class="page-btns">
+          <button class="page-btn" onclick="nmPage(${page-1})" ${page===0?'disabled':''}>‹ Anterior</button>
+          <button class="page-btn" onclick="nmPage(${page+1})" ${page>=totalPages-1?'disabled':''}>Próxima ›</button>
+        </div>
+      </div>` : ''}
+    </div>`;
+}
+function nmPage(p){ nmState.page=p; renderNM(); }
+
+// ═══════════════════════════════════════════════════════
+// EVOLUÇÃO DO PROBLEMA VIEW
+// Melhorias visuais v2:
+//  1. Separador semanal (borda a cada 7 colunas)
+//  2. Coluna Status Atual + direção (sticky)
+//  3. Coluna Dias Estagnado (sortable)
+//  4. Highlight da coluna "hoje" (última)
+//  5. Gradiente de opacidade por estagnação
+//  6. Fim de semana no cabeçalho (dim)
+//  7. Toggle tamanho de célula S/M/L
+//  8. Mini barra de fase na coluna Lotérica
+// ═══════════════════════════════════════════════════════
+let epState={search:'',uf:'Todos',page:0,sort:'stagnant',sortDir:-1,cellSize:18,view:'normal'};
+const EP_PER=50;
+const EP_DATES=45;
+
+// Mini barra de fase — ordem de progressão
+const EP_PHASE={
+  'Estação Obsoleta':1,'Fase de Viabilidade':2,'Migração para Fibra':3,'Roteador':4,'Reparo':0
+};
+const EP_PHASE_LABELS=['EO','FV','MF','RT'];
+const EP_PHASE_COLS  =['#10b981','#f59e0b','#3b82f6','#a855f7']; // cores canônicas EO/FV/MF/RT
+
+function epPhaseBar(prob){
+  const lvl = EP_PHASE[prob] ?? -1;
+  return EP_PHASE_LABELS.map((lbl,li)=>{
+    const phaseNum = li+1;
+    const filled = lvl > 0 && phaseNum < lvl;
+    const active  = lvl === phaseNum;
+    const bg = (filled||active) ? EP_PHASE_COLS[li] : '#1e2d45';
+    const op = active ? '1' : filled ? '0.55' : '0.18';
+    return `<span style="display:inline-block;width:${epState.cellSize-4}px;height:4px;border-radius:2px;background:${bg};opacity:${op}"></span>`;
+  }).join('');
+}
+
+function epSortBy(col){
+  if(epState.sort===col) epState.sortDir*=-1;
+  else { epState.sort=col; epState.sortDir=-1; }
+  epState.page=0; renderEP();
+}
+function epSetSize(s){ epState.cellSize=s; renderEP(); }
+function epSetView(v){ epState.view=v; epState.page=0; renderEP(); }
+
+// ── Detecta UL inconsistente ─────────────────────────────────────────────
+// Inconsistente = após atingir uma fase (EO/FV/MF/RT), o circuito:
+//  (a) voltou a Reparo E depois retornou a uma fase
+//  (b) voltou a Reparo (sem necessidade de retorno posterior)
+//  (c) normalizou (gap) E depois retornou a uma fase
+//
+// NÃO é inconsistente se todos os eventos de Reparo/gap aconteceram
+// ANTES da primeira atribuição de fase — trajetória legítima.
+function isULInconsistente(r){
+  const probs = r.problems;
+  const n = probs.length;
+
+  // Encontra o índice do PRIMEIRO status de fase válida
+  let firstPhaseIdx = -1;
+  for(let i = 0; i < n; i++){
+    if(probs[i] && (EP_PHASE[probs[i]] ?? -1) > 0){ firstPhaseIdx = i; break; }
+  }
+  // Nunca esteve em fase → não é inconsistente
+  if(firstPhaseIdx === -1) return false;
+
+  // A partir do primeiro status de fase, verifica eventos suspeitos
+  let inPhase = false;
+  let hadGapAfterPhase = false;
+
+  for(let i = firstPhaseIdx; i < n; i++){
+    const p = probs[i];
+    const isPhase  = p && (EP_PHASE[p] ?? -1) > 0;
+    const isReparo = p === 'Reparo';
+
+    if(!p){
+      // Gap (normalização temporária) após fase
+      if(inPhase) hadGapAfterPhase = true;
+      continue;
+    }
+
+    // Reparo após ter estado em fase → inconsistente (regra b e a)
+    if(isReparo && inPhase) return true;
+
+    // Voltou a uma fase após gap pós-fase → inconsistente (regra c e a)
+    if(isPhase && hadGapAfterPhase) return true;
+
+    if(isPhase){
+      inPhase = true;
+      hadGapAfterPhase = false; // reset gap se voltou a fase (para continuar rastreando)
+    } else {
+      // Outro status (ex: OI, inválido) — não reseta inPhase
+    }
+  }
+
+  return false;
+}
+
+function renderEP(){
+  const {dates,records}=DS.evolProblema;
+  if(!records.length){
+    $el('content').innerHTML=`<div style="padding:24px"><p style="color:var(--rose);margin-bottom:8px;font-weight:600">⚠️ Sem dados de Evolução do Problema disponíveis.</p><p style="color:var(--muted);font-size:12px">Verifique se o arquivo contém abas GIS DD-MM com dados de circuitos.</p></div>`;
+    return;
+  }
+  const CS = epState.cellSize; // tamanho da célula em px
+  const offset = Math.max(0, dates.length - EP_DATES);
+  const visDates = dates.slice(offset);
+  const ufs=['Todos',...distinct(records.map(r=>r.uf))];
+
+  // ── Pré-computa métricas por registro ─────────────────
+  function computeRowMeta(r){
+    // Status atual = última entrada preenchida
+    let currProb='', currIdx=-1;
+    for(let pi=r.problems.length-1;pi>=0;pi--){ if(r.problems[pi]){currProb=r.problems[pi];currIdx=pi;break;} }
+    // Status anterior (diferente do atual)
+    let prevProb='';
+    for(let pi=currIdx-1;pi>=0;pi--){ if(r.problems[pi]&&r.problems[pi]!==currProb){prevProb=r.problems[pi];break;} }
+    // Dias estagnado no status atual (consecutivos de trás)
+    let stagnant=0;
+    for(let pi=r.problems.length-1;pi>=0;pi--){
+      if(!r.problems[pi]) break;
+      if(r.problems[pi]===currProb) stagnant++;
+      else break;
+    }
+    // Direção última variação
+    const pOrd = EP_PHASE[prevProb]??-1;
+    const cOrd = EP_PHASE[currProb]??-1;
+    let dir='=';
+    if(prevProb && currProb && prevProb!==currProb){
+      if(cOrd>0 && pOrd>0) dir = cOrd>pOrd?'↑':cOrd<pOrd?'↓':'↕';
+      else dir='↕';
+    }
+    return {currProb, prevProb, stagnant, dir};
+  }
+
+  // ── Filtro ────────────────────────────────────────────
+  const q=epState.search.toLowerCase();
+  let filtered=records.filter(r=>
+    (epState.uf==='Todos'||r.uf===epState.uf)&&
+    (!q||r.loterica.toLowerCase().includes(q)||(r.cod||'').toLowerCase().includes(q))&&
+    (epState.view==='normal'||isULInconsistente(r))
+  );
+
+  // ── Ordenação por dias estagnado ──────────────────────
+  if(epState.sort==='stagnant'){
+    filtered=[...filtered].sort((a,b)=>{
+      const ma=computeRowMeta(a), mb=computeRowMeta(b);
+      return (ma.stagnant-mb.stagnant)*epState.sortDir;
+    });
+  }
+
+  const totalPages=Math.ceil(filtered.length/EP_PER)||1;
+  const page=Math.min(epState.page,totalPages-1);
+  const pageData=filtered.slice(page*EP_PER,(page+1)*EP_PER);
+
+  // ── Legenda ───────────────────────────────────────────
+  const legend=Object.entries(PROBLEM).map(([k,v])=>
+    `<span class="legend-item" style="background:${v.bg};color:${v.text}"><b>${v.abbr}</b><span style="opacity:.7;font-size:10px">= ${k}</span></span>`
+  ).join('')+
+    `<span class="legend-item" style="background:#0a2a0a;color:#00e5a0;border:1px solid #00e5a044"><b>N</b><span style="opacity:.7;font-size:10px">= Normalizada</span></span>`+
+    `<span class="legend-item" style="background:#0c1a2e;color:#4d6a8a"><b style="opacity:.4">·</b><span style="opacity:.7;font-size:10px">= Não estava na base</span></span>`+
+    `<span class="legend-item" style="background:#3a2200;color:#ffb830;border:1px solid #ffb83055" class="cell-retrocesso"><b>↓</b><span style="opacity:.7;font-size:10px">= Retrocesso de fase</span></span>`+
+    `<span class="legend-item cell-reparo-alerta" style="background:#2d0912;color:#fb7185;border:1px solid #fb718555;font-size:10px"><b>RP</b><span style="opacity:.7;font-size:10px">= Fase → Reparo (alerta)</span></span>`+
+    `<span class="legend-item cell-inv-resolvido" style="background:#1a2535;color:#9ca3af;font-size:10px"><b>⚠</b><span style="opacity:.7;font-size:10px">= Inválido resolvido</span></span>`+
+    `<span class="legend-item" style="background:#001a2e;color:#00c2ff44;border:1px solid #00c2ff33;font-size:10px"><b style="color:#00c2ff">◀▶</b><span style="opacity:.7">= Hoje</span></span>`+
+    `<span class="legend-item" style="background:#181820;color:#4d6a8a;font-size:10px"><b>sáb/dom</b><span style="opacity:.7">= fim de semana (dim)</span></span>`;
+
+  // ── Detecta fim de semana e pré-calcula datas ─────────
+  const visDow = visDates.map(d => sheetNameToDate('GIS '+d).getDay()); // 0=dom,6=sáb
+  const lastCI  = visDates.length - 1;
+
+  // ── Cabeçalho de datas ────────────────────────────────
+  // Larguras sticky: Lotérica=190, UF=38, Status=72 → total=300px
+  const STICKY_W = 300;
+  function tdBorder(ci){
+    const isWeek = ci>0 && ci%7===0;
+    const isToday = ci===lastCI;
+    if(isToday)  return 'border-left:2px solid #00c2ff55;border-right:2px solid #00c2ff55;';
+    if(isWeek)   return 'border-left:1px solid #00c2ff22;';
+    return '';
+  }
+  const sortStag  = epState.sort==='stagnant';
+  const sortArrow = epState.sortDir===-1?'↓':'↑';
+  const dateHeaders=visDates.map((d,ci)=>{
+    const isWeekend = visDow[ci]===0||visDow[ci]===6;
+    const isToday   = ci===lastCI;
+    const border    = tdBorder(ci);
+    const bg        = isToday ? 'background:#00c2ff0a;' : isWeekend ? 'background:#ffffff04;' : '';
+    const op        = isWeekend&&!isToday ? 'opacity:.38;' : '';
+    return `<th style="padding:3px 0;font-size:8px;text-align:center;width:${CS+4}px;max-width:${CS+4}px;white-space:nowrap;${border}${bg}${op}">${d}</th>`;
+  }).join('');
+
+  // ── Linhas da tabela ──────────────────────────────────
+  const tableRows=pageData.map((r,i)=>{
+    const meta  = computeRowMeta(r);
+    const {currProb,prevProb,stagnant,dir} = meta;
+    const bgRow = i%2?'var(--alt-row)':'var(--card)';
+    const firstIdx=r.problems.findIndex(p=>p!=='');
+
+    // Mini barra de fase
+    const phaseBar=epPhaseBar(currProb);
+
+    // Coluna Status Atual + direção
+    const cfg = PROBLEM[currProb]||{bg:'#14141e',text:'#6b7280',abbr:'??'};
+    const dirColor={'↑':'#00e5a0','↓':'#ff4d6e','↕':'#ffb830','=':'#4d6a8a'}[dir]||'#4d6a8a';
+    const statusCell=`<td style="position:sticky;left:228px;z-index:1;background:${bgRow};padding:3px 6px;text-align:center;white-space:nowrap">
+      <span style="background:${cfg.bg};color:${cfg.text};border-radius:4px;padding:1px 5px;font-size:10px;font-weight:700;display:inline-block">${cfg.abbr}</span>
+      <span style="color:${dirColor};font-size:11px;font-weight:800;margin-left:2px">${dir}</span>
+    </td>`;
+
+    // Coluna Estagnado
+    const stagColor=stagnant>10?'#ff4d6e':stagnant>5?'#ffb830':'var(--muted)';
+    const stagW     =stagnant>10?700:stagnant>5?600:400;
+    const stagCell=`<td style="text-align:right;padding:3px 10px;font-family:'JetBrains Mono',monospace;font-size:11px;color:${stagColor};font-weight:${stagW};white-space:nowrap">${stagnant}d</td>`;
+
+    // Células do heatmap
+    const cells=visDates.map((_,ci)=>{
+      const globalIdx=offset+ci;
+      const prob=r.problems[globalIdx]||'';
+      const border=tdBorder(ci);
+      const isWeekend=visDow[ci]===0||visDow[ci]===6;
+      const isToday  =ci===lastCI;
+      const todayBg  =isToday?'background:#00c2ff07;':'';
+
+      if(prob){
+        const hcfg=PROBLEM[prob];
+        const bg=hcfg?hcfg.dot:'#888';
+        const txt=hcfg?hcfg.abbr[0]:'?';
+        const isInvResolved = r.resolvedMask ? r.resolvedMask[globalIdx] : false;
+        let extraClass='', tooltipExtra='';
+        if(isInvResolved){
+          extraClass='cell-inv-resolvido';
+          tooltipExtra=' ⚠ (status original inválido — exibindo último válido)';
+        }
+
+        // Dia anterior
+        let prevDayProb='',prevDayRaw='';
+        for(let pi=globalIdx-1;pi>=0;pi--){
+          if(r.problems[pi]){
+            prevDayProb=r.problems[pi];
+            prevDayRaw=(r.resolvedMask&&r.resolvedMask[pi])?'Status Inválido':prevDayProb;
+            break;
+          }
+        }
+        // Última fase válida anterior
+        let lastValidProb='',lastValidRaw='';
+        for(let pi=globalIdx-1;pi>=0;pi--){
+          if(r.problems[pi]&&(EP_PHASE[r.problems[pi]]??-1)>0){
+            lastValidProb=r.problems[pi];
+            lastValidRaw=(r.resolvedMask&&r.resolvedMask[pi])?'Status Inválido':lastValidProb;
+            break;
+          }
+        }
+
+        // REPARO ALERTA: fase válida → Reparo (transição válida mas sinalizada)
+        // Regra: não marca se dia anterior era inválido RAW
+        if(!isInvResolved&&prob==='Reparo'&&prevDayProb&&(EP_PHASE[prevDayProb]??-1)>0&&prevDayRaw!=='Status Inválido'){
+          extraClass='cell-reparo-alerta';
+          tooltipExtra=` ⚠️ Retornou para Reparo: ${prevDayProb} → Reparo`;
+        }
+        // Retrocesso
+        else if(!isInvResolved&&lastValidProb&&(EP_PHASE[prob]??-1)>0&&lastValidRaw!=='Status Inválido'){
+          const lp=EP_PHASE[lastValidProb]??-1, cp=EP_PHASE[prob]??-1;
+          if(lp>0&&cp<lp){ extraClass='cell-retrocesso'; tooltipExtra=` ↓ RETROCESSO: ${lastValidProb} → ${prob}`; }
+        }
+
+        // #5 — Gradiente de estagnação: mais opaco quanto mais dias no mesmo status
+        let streak=0;
+        for(let pi=globalIdx-1;pi>=0;pi--){
+          if(r.problems[pi]===prob) streak++;
+          else break;
+        }
+        const alpha = isInvResolved ? 0.7 : Math.min(1, 0.42 + (streak/8)*0.58);
+
+        const dimWknd = isWeekend&&!isToday ? 'filter:saturate(0.5);' : '';
+        return`<td style="padding:${Math.max(1,CS/9|0)}px;width:${CS+4}px;text-align:center;${border}${todayBg}" title="${prob}${tooltipExtra}">
+          <div class="heat-cell ${extraClass}" style="width:${CS}px;height:${CS}px;font-size:${Math.max(7,CS-10)}px;background:${bg};margin:0 auto;opacity:${alpha};${dimWknd}">${txt}</div></td>`;
+      }
+
+      // Vazia
+      if(firstIdx===-1||globalIdx<firstIdx){
+        return`<td style="padding:${Math.max(1,CS/9|0)}px;width:${CS+4}px;text-align:center;${border}${todayBg}" title="Não estava na base neste dia">
+          <div class="heat-cell" style="width:${CS}px;height:${CS}px;font-size:${Math.max(6,CS-12)}px;background:#0c1a2e;opacity:0.3;margin:0 auto;color:#4d6a8a">·</div></td>`;
+      }
+      // Normalizada
+      return`<td style="padding:${Math.max(1,CS/9|0)}px;width:${CS+4}px;text-align:center;${border}${todayBg}" title="Normalizada — saiu da base neste dia">
+        <div class="heat-cell" style="width:${CS}px;height:${CS}px;font-size:${Math.max(7,CS-10)}px;background:#00e5a018;border:1px solid #00e5a055;margin:0 auto;color:#00e5a0;font-weight:900">N</div></td>`;
+    }).join('');
+
+    return`<tr class="${i%2?'alt':''}">
+      <td style="position:sticky;left:0;background:${bgRow};z-index:1;padding:4px 10px 4px 14px;white-space:nowrap;width:190px;max-width:190px;overflow:hidden;text-overflow:ellipsis">
+        <div style="font-weight:500;font-size:12px;overflow:hidden;text-overflow:ellipsis">${r.loterica}</div>
+        <div style="display:flex;align-items:center;gap:4px;margin-top:2px">
+          <span style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted);opacity:.7;overflow:hidden;text-overflow:ellipsis">${r.cod||''}</span>
+        </div>
+        <div style="display:flex;gap:2px;margin-top:2px">${phaseBar}</div>
+      </td>
+      <td style="position:sticky;left:190px;background:${bgRow};z-index:1;padding:4px 6px;text-align:center;color:var(--muted);font-weight:600;font-size:11px;width:38px">${r.uf}</td>
+      ${statusCell}
+      ${cells}
+      ${stagCell}
+    </tr>`;
+  }).join('');
+
+  // ── Botões de tamanho ─────────────────────────────────
+  const sizeBtns=[{v:14,l:'S'},{v:18,l:'M'},{v:22,l:'L'}].map(({v,l})=>`
+    <button onclick="epSetSize(${v})" style="
+      background:${CS===v?'#00c2ff18':'transparent'};
+      color:${CS===v?'var(--accent)':'var(--muted)'};
+      border:1px solid ${CS===v?'var(--accent)':'var(--border)'};
+      border-radius:5px;padding:3px 9px;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s">${l}</button>`
+  ).join('');
+
+  const isInconView = epState.view === 'inconsistente';
+  const viewToggle = `
+    <div style="display:flex;gap:0;border:1px solid var(--border);border-radius:7px;overflow:hidden;flex-shrink:0">
+      <button onclick="epSetView('normal')" style="
+        background:${!isInconView?'#00c2ff18':'transparent'};
+        color:${!isInconView?'var(--accent)':'var(--muted)'};
+        border:none;padding:4px 12px;font-size:11px;font-weight:600;cursor:pointer;
+        border-right:1px solid var(--border)">Todas ULs</button>
+      <button onclick="epSetView('inconsistente')" style="
+        background:${isInconView?'#ff4d6e18':'transparent'};
+        color:${isInconView?'#ff4d6e':'var(--muted)'};
+        border:none;padding:4px 12px;font-size:11px;font-weight:600;cursor:pointer">⚠ Inconsistentes</button>
+    </div>`;
+
+  $el('content').innerHTML=`
+    <div class="filter-bar" style="flex-wrap:wrap;gap:8px">
+      ${viewToggle}
+      <input class="filter-input" placeholder="🔍 Buscar lotérica ou código..." value="${epState.search}" oninput="epFilter('search',this.value)"/>
+      <select class="filter-select" onchange="epFilter('uf',this.value)">${ufs.map(v=>`<option${v===epState.uf?' selected':''}>${v}</option>`).join('')}</select>
+      <span class="filter-count">${filtered.length} ${isInconView?'inconsistentes':'lotéricas'}</span>
+      <div style="display:flex;gap:4px;margin-left:auto;align-items:center">
+        <span style="font-size:10px;color:var(--muted);margin-right:2px">Célula</span>
+        ${sizeBtns}
+      </div>
+    </div>
+    <div class="legend-row">${legend}</div>
+    <div class="table-wrap">
+      <div class="table-scroll" style="max-height:520px;overflow:auto">
+        <table style="font-size:11px;border-collapse:collapse">
+          <thead style="position:sticky;top:0;z-index:3">
+            <tr style="background:var(--surface)">
+              <th style="position:sticky;left:0;z-index:4;background:var(--surface);width:190px;min-width:190px;padding:8px 14px;text-align:left">Lotérica</th>
+              <th style="position:sticky;left:190px;z-index:4;background:var(--surface);width:38px;min-width:38px;padding:8px 6px;text-align:center">UF</th>
+              <th style="position:sticky;left:228px;z-index:4;background:var(--surface);width:72px;min-width:72px;padding:8px 6px;text-align:center;white-space:nowrap">Status</th>
+              ${dateHeaders}
+              <th style="padding:8px 10px;text-align:right;white-space:nowrap;cursor:pointer;color:${sortStag?'var(--accent)':'var(--muted)'};" onclick="epSortBy('stagnant')">
+                Estag. ${sortStag?sortArrow:'↕'}
+              </th>
+            </tr>
+          </thead>
+          <tbody>${tableRows.length?tableRows:'<tr><td colspan="100"><div class="empty-state"><div class="empty-state-icon">🔍</div><div class="empty-state-msg">Nenhuma lotérica encontrada</div></div></td></tr>'}</tbody>
+        </table>
+      </div>
+      <div class="pagination">
+        <span class="page-info">Exibindo últimas ${EP_DATES} datas • Página ${page+1}/${totalPages} • ordenado por estagnação</span>
+        <div class="page-btns">
+          <button class="page-btn" onclick="epPage(0)" ${page===0?'disabled':''}>«</button>
+          <button class="page-btn" onclick="epPage(${page-1})" ${page===0?'disabled':''}>‹</button>
+          ${Array.from({length:Math.min(5,totalPages)},(_,i)=>{const start=Math.max(0,Math.min(page-2,totalPages-5));const p2=start+i;return`<button class="page-btn${p2===page?' active':''}" onclick="epPage(${p2})">${p2+1}</button>`;}).join('')}
+          <button class="page-btn" onclick="epPage(${page+1})" ${page>=totalPages-1?'disabled':''}>›</button>
+          <button class="page-btn" onclick="epPage(${totalPages-1})" ${page>=totalPages-1?'disabled':''}>»</button>
+        </div>
+      </div>
+    </div>`;
+}
+function epFilter(key,val){
+  epState[key]=val; epState.page=0; renderEP();
+  if(key==='search'){
+    const inp=document.querySelector('.filter-input');
+    if(inp){ inp.focus(); const l=inp.value.length; inp.setSelectionRange(l,l); }
+  }
+}
+function epPage(p){ epState.page=p; renderEP(); }
+
+// ═══════════════════════════════════════════════════════
+// MIGRAÇÃO VIEW — espelha o BarChart do Excel:
+//   Barras accent1 (#156082), fundo dk2, header accent1
+// ═══════════════════════════════════════════════════════
+function svgBarXL(data, key, w=860, h=300, tipKey='mg'){
+  const PAD = {top:20, right:20, bot:55, left:50};
+  const PW = w-PAD.left-PAD.right, PH = h-PAD.top-PAD.bot;
+  const vals = data.map(d => d[key]||0);
+  const maxVal = Math.max(...vals, 1);
+  const maxV = Math.max(...vals);
+  const bw = Math.max(4, PW/data.length - 3);
+  const bxI = Math.max(1, Math.floor(data.length/18));
+  const nonZero = vals.filter(v=>v>0);
+  const avg = nonZero.length ? nonZero.reduce((s,v)=>s+v,0)/nonZero.length : 0;
+  const avgY = PAD.top + PH - (avg/maxVal)*PH;
+  const svgId = tipKey+'_'+Math.random().toString(36).slice(2,6);
+  window._tipData = window._tipData || {};
+  data.forEach((d,i) => {
+    window._tipData[svgId+'_'+i] = {date: d.date||d.fullDate, series: [[key, d[key]??0]]};
+  });
+
+  let svg = `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:${h}px;font-family:'Aptos Narrow',Outfit,sans-serif" onmousemove="moveTip(event)" onmouseleave="hideTip()">`;
+  svg += `<rect x="${PAD.left}" y="${PAD.top}" width="${PW}" height="${PH}" rx="3" fill="${XL.dk2}55"/>`;
+  for(let i=0;i<=4;i++){
+    const y = PAD.top + PH*(i/4);
+    const val = Math.round(maxVal*(1-i/4));
+    svg += `<line x1="${PAD.left}" y1="${y}" x2="${PAD.left+PW}" y2="${y}" stroke="${XL.lt2}22" stroke-width="1"/>`;
+    svg += `<text x="${PAD.left-6}" y="${y+4}" text-anchor="end" fill="${XL.lt2}88" font-size="10">${val}</text>`;
+  }
+  if(avg > 0){
+    svg += `<line x1="${PAD.left}" y1="${avgY}" x2="${PAD.left+PW}" y2="${avgY}" stroke="${XL.accent2}" stroke-width="1.5" stroke-dasharray="5,4" opacity=".7"/>`;
+    svg += `<text x="${PAD.left+PW+4}" y="${avgY+4}" fill="${XL.accent2}" font-size="9" font-weight="700">~${avg.toFixed(1)}</text>`;
+  }
+  data.forEach((d,i) => {
+    const v = d[key]||0;
+    const x = PAD.left + i*(PW/data.length) + (PW/data.length-bw)/2;
+    const bh = (v/maxVal)*PH;
+    const barC = v===maxV ? XL.accent4 : v>0 ? XL.accent1 : XL.dk2;
+    svg += `<rect x="${x}" y="${PAD.top+PH-bh}" width="${bw}" height="${Math.max(bh,0)}" rx="3" fill="${barC}" fill-opacity="${v>0?'0.88':'0.3'}"/>`;
+    if(v === maxV && v > 0){
+      svg += `<text x="${x+bw/2}" y="${PAD.top+PH-bh-4}" text-anchor="middle" fill="${XL.accent4}" font-size="9" font-weight="700">${v}</text>`;
+    }
+    if(i % bxI === 0){
+      const cx = x + bw/2;
+      svg += `<text x="${cx}" y="${h-6}" text-anchor="middle" fill="${XL.lt2}88" font-size="9" transform="rotate(-40,${cx},${h-6})">${d.date}</text>`;
+    }
+    // Hover zone
+    const tipK = svgId+'_'+i;
+    svg += `<rect x="${x-1}" y="${PAD.top}" width="${bw+2}" height="${PH}" fill="transparent" style="cursor:crosshair" onmouseover="showTip(event,'${tipK}')" onmouseout="hideTip()"/>`;
+  });
+  svg += `</svg>`;
+  return svg;
+}
+
+function renderMG(){
+  const data = DS.migracao;
+  if(!data.length){
+    $el('content').innerHTML = `<div style="padding:24px">
+      <p style="color:var(--rose);margin-bottom:8px;font-weight:600">⚠️ Sem dados de Migração disponíveis.</p>
+      <p style="color:var(--muted);font-size:12px">Verifique se o arquivo contém abas GIS DD-MM com dados de circuitos.</p>
+    </div>`;
+    return;
+  }
+
+  const total     = data.reduce((s,d) => s+d.value, 0);
+  const maxDay    = data.reduce((m,d) => d.value>m.value?d:m, {value:0, date:'', fullDate:''});
+  const diasAtivos= data.filter(d=>d.value>0).length;
+  const media     = diasAtivos>0 ? (total/diasAtivos).toFixed(1) : 0;
+  const acumLast  = data[data.length-1];
+
+  // KPIs com cores Excel
+  const kpis = `
+    ${kpiCard('Total Normalizado',    fmtN(total),       XL.accent3, '✅', 'saíram da lista')}
+    ${kpiCard('Máximo no Dia',    fmtN(maxDay.value), XL.accent4, '🏆', maxDay.fullDate||maxDay.date)}
+    ${kpiCard('Dias c/ Migração', fmtN(diasAtivos),  XL.accent2, '📅', `de ${data.length} dias`)}
+    ${kpiCard('Média Diária',     media,              XL.accent1, '📊', 'circuitos/dia')}`;
+
+  const barSvg = svgBarXL(data, 'value');
+
+  // Ranking Top-10 com cores Excel
+  const top = data.filter(d=>d.value>0).sort((a,b)=>b.value-a.value).slice(0,10);
+  const rankRows = top.map((d,i) => {
+    const c = [XL.accent1,XL.accent2,XL.accent3,XL.accent4,XL.accent6,XL.accent5][i%6];
+    const w = (d.value/maxDay.value*100).toFixed(0);
+    return `<div class="rank-row">
+      <span class="rank-num" style="color:${c}">#${i+1}</span>
+      <span class="rank-label">${d.fullDate||d.date}</span>
+      <span class="rank-badge" style="background:${c}28;color:${c};font-weight:800">${d.value}</span>
+      <div class="rank-bar-track"><div class="rank-bar-fill" style="width:${w}%;background:${c}"></div></div>
+    </div>`;
+  }).join('');
+
+  // Tabela completa (apenas dias com migração)
+  const tableActive = data.filter(d=>d.value>0);
+  const tableRows = tableActive.map((d,i) => `
+    <tr class="${i%2?'alt':''}">
+      <td style="font-weight:600;color:${d.value===maxDay.value?XL.accent4:XL.accent1};font-family:'JetBrains Mono',monospace">${d.fullDate||d.date}</td>
+      <td style="font-family:'JetBrains Mono',monospace;font-weight:800;color:${d.value===maxDay.value?XL.accent4:'var(--text)'};text-align:right">${fmtN(d.value)}</td>
+      <td style="text-align:right">
+        <div style="display:inline-block;height:6px;border-radius:3px;background:${d.value===maxDay.value?XL.accent4:XL.accent1};opacity:.8;width:${Math.max(4,(d.value/maxDay.value*120)).toFixed(0)}px"></div>
+      </td>
+    </tr>`).join('');
+
+  $el('content').innerHTML = `
+    <div class="kpi-row">${kpis}</div>
+
+    <!-- Cabeçalho estilo Excel accent1 -->
+    <div style="background:${XL.accent1};color:#fff;border-radius:8px 8px 0 0;padding:10px 18px;font-weight:700;font-size:13px;display:flex;justify-content:space-between;align-items:center">
+      <span>✅ Circuitos Normalizados por Dia — Histórico</span>
+      <span style="font-size:11px;opacity:.8">
+        <span style="background:${XL.accent4}33;color:${XL.accent4};padding:2px 8px;border-radius:4px">🏆 Pico = ${maxDay.value} em ${maxDay.fullDate||maxDay.date}</span>
+        &nbsp;
+        <span style="background:#fff2;padding:2px 8px;border-radius:4px">— Média ${media}/dia</span>
+      </span>
+    </div>
+    <div style="background:var(--card);border:1px solid ${XL.accent1}44;border-top:none;border-radius:0 0 8px 8px;padding:16px;margin-bottom:14px">
+      ${barSvg}
+      <div style="display:flex;gap:14px;margin-top:8px;font-size:11px;color:var(--muted);align-items:center">
+        <span style="display:flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:${XL.accent1};border-radius:2px;display:inline-block;opacity:.9"></span>Migração diária</span>
+        <span style="display:flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:${XL.accent4};border-radius:2px;display:inline-block;opacity:.9"></span>Dia pico</span>
+        <span style="display:flex;align-items:center;gap:5px"><span style="width:18px;height:2px;background:${XL.accent2};border-radius:1px;display:inline-block;opacity:.7;border:1px dashed ${XL.accent2}"></span>Média diária</span>
+      </div>
+    </div>
+
+    <!-- Grid: Top 10 + Tabela -->
+    <div class="grid-2" style="gap:14px">
+      <div>
+        <div style="background:${XL.dk2};border:1px solid ${XL.accent1}44;border-radius:8px 8px 0 0;padding:8px 16px;font-weight:700;font-size:12px;color:${XL.accent1}">
+          🏆 Top 10 — Maiores Volumes Diários
+        </div>
+        <div style="background:var(--card);border:1px solid ${XL.accent1}33;border-top:none;border-radius:0 0 8px 8px;padding:14px">
+          ${rankRows}
+        </div>
+      </div>
+
+      <div style="overflow:hidden">
+        <div style="background:${XL.dk2};border:1px solid ${XL.accent1}44;border-radius:8px 8px 0 0;padding:8px 16px;font-weight:700;font-size:12px;color:${XL.accent1}">
+          📋 Dias com Migração — ${tableActive.length} registros
+        </div>
+        <div style="overflow-y:auto;max-height:420px;border:1px solid ${XL.accent1}33;border-top:none;border-radius:0 0 8px 8px">
+          <table style="font-size:13px">
+            <thead>
+              <tr style="background:${XL.accent1}20">
+                <th style="color:${XL.accent1}">Data</th>
+                <th style="text-align:right;color:${XL.accent1}">Circuitos</th>
+                <th style="text-align:right;width:130px;color:${XL.accent1}">Volume</th>
+              </tr>
+            </thead>
+            <tbody>${tableRows}</tbody>
+          </table>
+        </div>
+      </div>
+    </div>`;
+}
+// ── Exportação Excel ──
+function exportExcel(){
+  if(!DS.gis || !DS.gis.length){ alert('Nenhum dado carregado.'); return; }
+
+  const headers = [
+    'Cód. da Lotérica','Lotérica','Tipo de Link','Cidade','UF','Empresa',
+    'Problema (Sistema)','Status Inválido Resolvido?','Último Status Válido',
+    'Status (Último Comentário)',
+    'Variação vs Dia Anterior','Problema Dia Anterior',
+    'Duração (h)','Data Inicial','Chamado','Previsão','Regional','Tecnologia'
+  ];
+
+  function getVariacao(r){
+    if(r.statusNovo) return 'Novo circuito';
+    if(!r.statusMudou) return 'Mesmo status';
+    const dir = getVariacaoDir(r);
+    if(dir === 'avancou')    return 'Avançou';
+    if(dir === 'retrocedeu') return 'Retrocedeu';
+    if(isInvalidoNeutral(r)) return 'Neutro (inválido)';
+    return 'Status alterado';
+  }
+
+  const rows = DS.gis.map(r => [
+    r.cod, r.loterica, r.tipoLink, r.cidade, r.uf, r.empresa,
+    r.problema,
+    r.invalidoResolvido ? 'Sim' : 'Não',
+    r.ultimoStatusValido || '—',
+    (r.statusText||'').replace(/\n/g,' ').trim(),
+    getVariacao(r), r.problemaPrev || '—',
+    r.duracao||0, r.dataInicial, r.chamado, r.previsao, r.regional, r.tecnologia
+  ]);
+
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+
+  // Larguras de coluna
+  ws['!cols'] = [
+    {wch:14},{wch:32},{wch:14},{wch:18},{wch:5},{wch:12},
+    {wch:24},{wch:20},{wch:24},
+    {wch:60},
+    {wch:26},{wch:24},
+    {wch:12},{wch:18},{wch:18},{wch:14},{wch:16},{wch:14}
+  ];
+
+  const range = XLSX.utils.decode_range(ws['!ref']);
+  for(let C = range.s.c; C <= range.e.c; C++){
+    const cell = ws[XLSX.utils.encode_cell({r:0, c:C})];
+    if(cell){
+      cell.s = {
+        fill:{fgColor:{rgb:"0F2040"}},
+        font:{bold:true, color:{rgb:"00C2FF"}},
+        alignment:{horizontal:"center"}
+      };
+    }
+  }
+
+  const varCol = 10; // índice 0-based da coluna "Variação vs Dia Anterior"
+  for(let R = 1; R <= rows.length; R++){
+    const cell = ws[XLSX.utils.encode_cell({r:R, c:varCol})];
+    if(!cell) continue;
+  const colors = {
+      'Avançou':                    {bg:"062A1A", fg:"00E5A0"},
+      'Retrocedeu':                 {bg:"3A0C18", fg:"FF4D6E"},
+      'Status alterado':            {bg:"3A2200", fg:"FFB830"},
+      'Novo circuito':              {bg:"0E2A4A", fg:"60A5FA"},
+      'Mesmo status':               {bg:"1A1A2E", fg:"888888"},
+      'Neutro (inválido)':          {bg:"1A1A2E", fg:"9CA3AF"},
+    };
+    const c = colors[cell.v];
+    if(c) cell.s = {fill:{fgColor:{rgb:c.bg}}, font:{color:{rgb:c.fg}, bold:true}};
+  }
+
+  const wb2 = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb2, ws, 'GIS Atualizado');
+
+  // Aba de resumo
+  const counts = {};
+  DS.gis.forEach(r=>{ counts[r.problema]=(counts[r.problema]||0)+1; });
+  const mudaram    = DS.gis.filter(r=>r.statusMudou).length;
+  const novos      = DS.gis.filter(r=>r.statusNovo).length;
+  const invalidos  = DS.gis.filter(r=>r.rawProblema==='Status Inválido').length;
+  const invResolv  = DS.gis.filter(r=>r.invalidoResolvido).length;
+  const avanc  = DS.gis.filter(r=> getVariacaoDir(r)==='avancou').length;
+  const retro  = DS.gis.filter(r=> getVariacaoDir(r)==='retrocedeu').length;
+
+  const sumRows = [
+    ['GIS Primário — Resumo Exportado'],
+    ['Gerado em', new Date().toLocaleString('pt-BR')],
+    ['Planilha atual', DS.currSheetName],
+    ['Planilha anterior', DS.prevSheetName],
+    [''],
+    ['Categoria','Qtd','% Total'],
+    ...Object.entries(counts).map(([k,v])=>[k, v, (v/DS.gis.length*100).toFixed(1)+'%']),
+    [''],
+    ['Variações vs Dia Anterior',''],
+    ['Total de circuitos', DS.gis.length],
+    ['Mudaram de status', mudaram],
+    ['Avançaram de fase', avanc],
+    ['Retrocederam', retro],
+    ['Novos circuitos', novos],
+    [''],
+    ['Status Inválido',''],
+    ['Com texto inválido (bruto)', invalidos],
+    ['Resolvidos p/ último válido', invResolv],
+    ['Sem resolução (sem histórico)', invalidos - invResolv],
+  ];
+  const wsSummary = XLSX.utils.aoa_to_sheet(sumRows);
+  wsSummary['!cols'] = [{wch:28},{wch:12},{wch:12}];
+  XLSX.utils.book_append_sheet(wb2, wsSummary, 'Resumo');
+
+  const date = new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb2, `GIS-Atualizado-${date}.xlsx`, {cellStyles:true});
+  // Feedback visual no botão
+  const btn = $el('btn-export');
+  if(btn){ const orig=btn.innerHTML; btn.innerHTML='✅ Exportado!'; btn.classList.add('btn-export-ok');
+    setTimeout(()=>{ btn.innerHTML=orig; btn.classList.remove('btn-export-ok'); }, 2500); }
+}
+
+// ── Tema ──
+function toggleTheme(){
+  const isLight = document.documentElement.classList.toggle('light');
+  $el('theme-btn').textContent = isLight ? '🌞' : '🌙';
+  localStorage.setItem('gis-theme', isLight ? 'light' : 'dark');
+}
+(function(){
+  if(localStorage.getItem('gis-theme')==='light'){
+    document.documentElement.classList.add('light');
+    const btn=$el('theme-btn');
+    if(btn) btn.textContent='🌞';
+  }
+})();
+
+// ── Navegação por teclado ──
+document.addEventListener('keydown', e => {
+  if(['INPUT','SELECT','TEXTAREA'].includes(document.activeElement.tagName)) return;
+  if(!DS.gisSheetNames) return;
+  if(e.key==='ArrowLeft'  || e.key==='ArrowUp')   { e.preventDefault(); shiftDay(-1); }
+  if(e.key==='ArrowRight' || e.key==='ArrowDown')  { e.preventDefault(); shiftDay(+1); }
+  if(e.ctrlKey && e.shiftKey && e.key==='D'){
+    e.preventDefault();
+    const cod = prompt('Código para debug (ex: 19-017571-0)');
+    if(!cod) return;
+    const rec = DS.evolProblema && DS.evolProblema.records.find(r=>r.cod===cod.trim());
+    if(!rec){ alert('Circuito não encontrado: '+cod); return; }
+    const lines=rec.problems.map((p,i)=>DS.evolProblema.dates[i]+'  →  '+(p||'(vazio)')).join('\n');
+    alert('Histórico de '+cod+':\n\n'+lines);
+  }
+});
+
+// ── Hint de histórico na tela de upload ──
+(function(){
+  try {
+    const h = JSON.parse(localStorage.getItem('gis-hist-v1')||'{}');
+    const days = Object.keys(h).filter(s=>/^GIS\s+\d{2}-\d{2}$/i.test(s.trim())).length;
+    const hint = $el('upload-hist-hint');
+    if(hint && days > 0){
+      hint.innerHTML = `💾 <span style="color:var(--accent)">${days} dia${days!==1?'s':''}</span> salvos no histórico — comparações de variação ficarão disponíveis automaticamente`;
+    }
+  } catch(e){}
+})();
+</script>
+</body>
+</html>
